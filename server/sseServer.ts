@@ -20,6 +20,7 @@ type ConnectionContext = {
   connectionId: string
   tripId: string | null
   response: ServerResponse
+  heartbeat: NodeJS.Timeout | null
 }
 
 const clientsByConnectionId = new Map<string, ConnectionContext>()
@@ -39,8 +40,25 @@ type ServerMessage =
     }
 
 function sendSSEMessage(response: ServerResponse, message: ServerMessage): void {
+  if (!isResponseWritable(response)) {
+    return
+  }
+
   const data = JSON.stringify(message)
   response.write(`data: ${data}\n\n`)
+}
+
+function isResponseWritable(response: ServerResponse): boolean {
+  return !response.writableEnded && !response.destroyed
+}
+
+function sendSSEKeepAlive(response: ServerResponse): void {
+  if (!isResponseWritable(response)) {
+    return
+  }
+
+  // SSE comment frame used as a heartbeat to keep proxies from closing idle streams.
+  response.write(': keepalive\n\n')
 }
 
 function parseTripState(data: string): TripState {
@@ -304,6 +322,7 @@ export function handleSSEConnection(req: IncomingMessage, res: ServerResponse): 
     connectionId,
     tripId: null,
     response: res,
+    heartbeat: null,
   }
 
   clientsByConnectionId.set(connectionId, context)
@@ -311,9 +330,14 @@ export function handleSSEConnection(req: IncomingMessage, res: ServerResponse): 
   // Set SSE headers
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
   })
+
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders()
+  }
 
   // Send initial connected message
   sendSSEMessage(res, {
@@ -321,8 +345,22 @@ export function handleSSEConnection(req: IncomingMessage, res: ServerResponse): 
     connectionId,
   })
 
-  // Handle client disconnect
-  req.on('close', async () => {
+  context.heartbeat = setInterval(() => {
+    sendSSEKeepAlive(res)
+  }, 20_000)
+
+  let cleanedUp = false
+  const cleanup = async (): Promise<void> => {
+    if (cleanedUp) {
+      return
+    }
+    cleanedUp = true
+
+    if (context.heartbeat) {
+      clearInterval(context.heartbeat)
+      context.heartbeat = null
+    }
+
     clientsByConnectionId.delete(connectionId)
 
     if (context.tripId) {
@@ -335,6 +373,15 @@ export function handleSSEConnection(req: IncomingMessage, res: ServerResponse): 
         }
       }
     }
+  }
+
+  // Handle client disconnect
+  req.on('close', () => {
+    void cleanup()
+  })
+
+  res.on('error', () => {
+    void cleanup()
   })
 }
 
