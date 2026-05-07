@@ -22,9 +22,6 @@ const clientOriginEnv =
     : process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 export const allowedOrigins = new Set([
-  // Always allow the server's own localhost origin so same-origin
-  // browser requests work in production without extra config.
-  normalizeOrigin(`http://localhost:${Number(process.env.PORT ?? 8080)}`),
   // Additional origins (e.g. Vite dev server, staging domain)
   ...clientOriginEnv
     .split(",")
