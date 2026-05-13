@@ -1,0 +1,162 @@
+.location-card {
+  padding: 0.45rem 0 0.7rem;
+  background: #ffffff;
+  scroll-margin-top: 1rem;
+}
+
+.location-card-highlight {
+  outline: 2px solid #003049;
+  outline-offset: 2px;
+}
+
+.location-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+
+.location-title-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.caret-toggle {
+  font-size: 1.1rem;
+  padding: 0.1rem 0.4rem 0.1rem 0.2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-strong);
+  line-height: 1;
+}
+
+.location-title-wrapper {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.location-title {
+  /* font-size: 0.96rem; */
+  font-weight: 700;
+  color: var(--ink-strong);
+  line-height: 1.2;
+}
+
+.location-subtitle {
+  /* font-size: 0.72rem; */
+  color: var(--ink-muted);
+}
+
+
+.location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.location-actions-below {
+  margin-top: 0.25rem;
+  justify-content: flex-start;
+}
+
+.location-action-button {
+  min-width: 0;
+  padding: 0.18rem 0.4rem;
+  /* font-size: 0.72rem; */
+}
+
+.items-list {
+  margin: 0.45rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.todo-item-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.todo-item-text {
+  min-width: 0;
+  /* font-size: 0.82rem; */
+  color: var(--ink-strong);
+  word-break: break-word;
+}
+
+.todo-item-text.is-done {
+  text-decoration: line-through;
+  color: var(--ink-muted);
+}
+
+.checkbox-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.add-task-button {
+  margin-top: 0.35rem;
+  padding: 0.22rem 0.45rem;
+  /* font-size: 0.9rem; */
+  line-height: 1;
+}
+
+.new-item-form {
+  margin-top: 0.35rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.new-item-input {
+  padding: 0.38rem 0.45rem;
+  border-radius: 0.42rem;
+  /* font-size: 0.82rem; */
+}
+
+.new-item-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.location-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(9, 36, 72, 0.18);
+}
+
+.location-editor-dialog {
+  width: min(92vw, 22rem);
+  padding: 0.75rem;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 0.7rem;
+  background: #ffffff;
+  box-shadow: 0 12px 36px rgba(9, 36, 72, 0.18);
+}
+
+.location-editor-form {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.location-editor-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.location-editor-form input {
+  padding: 0.42rem 0.5rem;
+  border-radius: 0.42rem;
+  /* font-size: 0.82rem; */
+}

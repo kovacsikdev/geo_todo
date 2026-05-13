@@ -17,6 +17,22 @@ export function registerApiRoutes(app: Express): void {
 
     try {
       const result = await handleTripAction(req.body, connectionId);
+      if (!result.ok) {
+        const errorMessage = typeof result.error === "string" ? result.error : "Request failed.";
+        if (errorMessage.toLowerCase().startsWith("forbidden")) {
+          res.status(403).json(result);
+          return;
+        }
+
+        if (errorMessage.toLowerCase().includes("not found")) {
+          res.status(404).json(result);
+          return;
+        }
+
+        res.status(400).json(result);
+        return;
+      }
+
       res.status(200).json(result);
     } catch {
       res.status(500).json({ error: "Internal server error." });

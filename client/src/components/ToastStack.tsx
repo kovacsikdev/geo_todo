@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import './ToastStack.css'
 
 export type ToastKind = 'error' | 'success' | 'info'
 

@@ -1,64 +1,75 @@
 const OWNER_TRIPS_STORAGE_KEY = 'geo-todo-owner-trips'
 
-let ownerTripsCache: Set<string> | null = null
+type OwnerTripMap = Record<string, string>
 
-const loadOwnerTrips = (): Set<string> => {
+let ownerTripsCache: OwnerTripMap | null = null
+
+const loadOwnerTrips = (): OwnerTripMap => {
   if (ownerTripsCache) {
     return ownerTripsCache
   }
 
   const raw = window.localStorage.getItem(OWNER_TRIPS_STORAGE_KEY)
   if (!raw) {
-    ownerTripsCache = new Set()
+    ownerTripsCache = {}
     return ownerTripsCache
   }
 
   try {
     const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) {
-      ownerTripsCache = new Set()
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      ownerTripsCache = {}
       return ownerTripsCache
     }
 
-    ownerTripsCache = new Set(
-      parsed
-        .filter((entry): entry is string => typeof entry === 'string')
-        .map((entry) => entry.trim())
-        .filter((entry) => entry.length > 0),
-    )
+    ownerTripsCache = Object.entries(parsed).reduce<OwnerTripMap>((acc, [tripId, ownerId]) => {
+      const normalizedTripId = typeof tripId === 'string' ? tripId.trim() : ''
+      const normalizedOwnerId = typeof ownerId === 'string' ? ownerId.trim() : ''
+      if (normalizedTripId && normalizedOwnerId) {
+        acc[normalizedTripId] = normalizedOwnerId
+      }
+      return acc
+    }, {})
+
     return ownerTripsCache
   } catch {
-    ownerTripsCache = new Set()
+    ownerTripsCache = {}
     return ownerTripsCache
   }
 }
 
-const persistOwnerTrips = (trips: Set<string>): void => {
-  window.localStorage.setItem(OWNER_TRIPS_STORAGE_KEY, JSON.stringify([...trips]))
+const persistOwnerTrips = (trips: OwnerTripMap): void => {
+  window.localStorage.setItem(OWNER_TRIPS_STORAGE_KEY, JSON.stringify(trips))
 }
 
-export const saveOwnerTrip = (tripId: string): void => {
+export const saveOwnerTrip = (tripId: string, ownerId: string): void => {
   const normalizedTripId = tripId.trim()
-  if (!normalizedTripId) {
+  const normalizedOwnerId = ownerId.trim()
+  if (!normalizedTripId || !normalizedOwnerId) {
     return
   }
 
   const existing = loadOwnerTrips()
-  if (existing.has(normalizedTripId)) {
+  if (existing[normalizedTripId] === normalizedOwnerId) {
     return
   }
 
-  existing.add(normalizedTripId)
+  existing[normalizedTripId] = normalizedOwnerId
   persistOwnerTrips(existing)
 }
 
-export const isOwnerTrip = (tripId: string): boolean => {
+export const getOwnerIdForTrip = (tripId: string): string | null => {
   const normalizedTripId = tripId.trim()
   if (!normalizedTripId) {
-    return false
+    return null
   }
 
-  return loadOwnerTrips().has(normalizedTripId)
+  const ownerId = loadOwnerTrips()[normalizedTripId]
+  return typeof ownerId === 'string' && ownerId.trim().length > 0 ? ownerId : null
+}
+
+export const isOwnerTrip = (tripId: string): boolean => {
+  return getOwnerIdForTrip(tripId) !== null
 }
 
 export const removeOwnerTrip = (tripId: string): void => {
@@ -68,6 +79,6 @@ export const removeOwnerTrip = (tripId: string): void => {
   }
 
   const existing = loadOwnerTrips()
-  existing.delete(normalizedTripId)
+  delete existing[normalizedTripId]
   persistOwnerTrips(existing)
 }

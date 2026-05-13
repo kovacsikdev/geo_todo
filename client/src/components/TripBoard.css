@@ -1,0 +1,25 @@
+.new-location {
+  /* background: #ffffff;
+  padding: 1rem 0; */
+}
+
+.locations-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: 1fr;
+}
+
+.empty-state {
+  background: #ffffff;
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: var(--ink-strong);
+}
+
+.empty-state p {
+  margin-top: 0.5rem;
+  color: var(--ink-muted);
+}

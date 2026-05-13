@@ -1,23 +1,24 @@
 import { memo } from "react";
-import { TripGate } from "./TripGate";
 import type { FormEvent } from "react";
+import { TripGate } from "./TripGate";
 import type { Trip, TripRole } from "../types";
+import "./TripHeader.css";
 
 type TripHeaderProps = {
   hasTrip: boolean;
   busy: boolean;
   tripNameDraft: string;
-  tripIdDraft: string;
+  accessIdDraft: string;
   trip: Trip;
-  activeTripId: string;
+  ownerId: string;
+  guestId: string;
   tripRole: TripRole;
   connected: boolean;
   updatedAt: string;
   onTripNameDraftChange: (value: string) => void;
-  onTripIdDraftChange: (value: string) => void;
+  onAccessIdDraftChange: (value: string) => void;
   onCreateTrip: (event: FormEvent<HTMLFormElement>) => void;
   onJoinTrip: (event: FormEvent<HTMLFormElement>) => void;
-  onCopyTripId: () => void;
   onDeleteTrip: () => void;
   onLeaveTrip: () => void;
 };
@@ -26,82 +27,87 @@ const TripHeaderComponent = ({
   hasTrip,
   busy,
   tripNameDraft,
-  tripIdDraft,
+  accessIdDraft,
   trip,
-  activeTripId,
+  ownerId,
+  guestId,
   tripRole,
   connected,
   updatedAt,
   onTripNameDraftChange,
-  onTripIdDraftChange,
+  onAccessIdDraftChange,
   onCreateTrip,
   onJoinTrip,
-  onCopyTripId,
   onDeleteTrip,
   onLeaveTrip,
 }: TripHeaderProps) => {
   return (
     <header className="hero-header">
-      <h1>Trip Planner</h1>
-      <p className="hero-copy">
-        Owners create and update trips. Guests join by trip ID. Every trip
-        update is seen by guests in real-time.
-      </p>
+      <h1>Map Itinerary</h1>
+
+      <div className="status-row">
+        <span className={`status-pill ${connected ? 'online' : 'offline'}`}>
+          {connected ? 'Connected' : 'Reconnecting'}
+        </span>
+        {hasTrip ? <span className="status-pill neutral">Updated {updatedAt}</span> : null}
+      </div>
 
       {!hasTrip ? (
         <TripGate
           connected={connected}
           busy={busy}
           tripNameDraft={tripNameDraft}
-          tripIdDraft={tripIdDraft}
+          accessIdDraft={accessIdDraft}
           onTripNameDraftChange={onTripNameDraftChange}
-          onTripIdDraftChange={onTripIdDraftChange}
+          onAccessIdDraftChange={onAccessIdDraftChange}
           onCreateTrip={onCreateTrip}
           onJoinTrip={onJoinTrip}
         />
-      ) : null}
-
-      {hasTrip ? (
+      ) : (
         <div className="trip-meta">
-          <div className="status-pill neutral">
-            Role: {tripRole === "owner" ? "Owner" : "Guest"}
-          </div>
-          <div className="status-pill neutral">Trip name: {trip.name}</div>
-          <div className="status-pill neutral">
-            Share ID {activeTripId}{" "}
-            <span>
-              {" "}
-              <button
-                type="button"
-                className="button subtle"
-                onClick={onCopyTripId}
-              >
-                Copy ID
-              </button>
+          <div className="trip-meta-row">
+            <span className="trip-meta-label">Role: </span>
+            <span className="trip-meta-value">
+              {tripRole === 'owner' ? 'Owner' : 'Guest'}
             </span>
           </div>
 
-          {tripRole === "owner" ? (
-            <button
-              type="button"
-              className="button danger"
-              onClick={onDeleteTrip}
-            >
-              Delete trip
-            </button>
-          ) : null}
-          <button type="button" className="button subtle" onClick={onLeaveTrip}>
-            Leave trip
-          </button>
-        </div>
-      ) : null}
+          <div className="trip-meta-row">
+            <span className="trip-meta-label">Trip name: </span>
+            <span className="trip-meta-value">{trip.name}</span>
+          </div>
 
-      <div className="status-row">
-        <span className={`status-pill ${connected ? 'online' : 'offline'}`}>
-          {connected ? 'Connected' : 'Reconnecting'}
-        </span>
-        <span className="status-pill neutral">Updated {updatedAt}</span>
-      </div>
+
+          {tripRole === 'owner' ? (
+            <>
+              <div className="trip-meta-row">
+                <span className="trip-meta-label">Owner ID: </span>
+                <span className="trip-meta-value">{ownerId}</span>
+              </div>
+              <div className="trip-meta-row">
+                <span className="trip-meta-label">Guest ID: </span>
+                <span className="trip-meta-value">{guestId}</span>
+              </div>
+            </>
+          ) : guestId ? (
+            <div className="trip-meta-row">
+              <span className="trip-meta-label">Guest ID</span>
+              <span className="trip-meta-value">{guestId}</span>
+            </div>
+          ) : null}
+
+          <div className="trip-meta-actions">
+            {tripRole === 'owner' ? (
+              <button type="button" className="button danger" onClick={onDeleteTrip}>
+                Delete
+              </button>
+            ) : null}
+            <button type="button" className="button subtle" onClick={onLeaveTrip}>
+              Leave
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

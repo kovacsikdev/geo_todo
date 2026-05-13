@@ -1,0 +1,76 @@
+.hero-header {
+  display: grid;
+  gap: 0.3rem;
+  background: #ffffff;
+}
+
+.hero-header h1 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--ink-strong);
+}
+
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid var(--stroke-soft);
+  border-radius: 0.32rem;
+  /* font-size: 0.72rem; */
+  font-weight: 600;
+  color: var(--ink-strong);
+  background: #ffffff;
+}
+
+.trip-meta {
+  /* display: grid;
+  gap: 0.2rem;
+  margin-top: 0.1rem; */
+  margin: 0.5rem 0;
+}
+
+.trip-meta-row {
+  /* display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.05rem 0; */
+  padding: 0.25rem 0;
+}
+
+.trip-meta-label {
+  /* font-size: 0.68rem; */
+  /* letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap; */
+  font-weight: bold;
+}
+
+.trip-meta-value {
+  min-width: 0;
+  /* font-size: 0.8rem; */
+  /* color: var(--ink-strong);
+  word-break: break-word; */
+}
+
+.trip-meta-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.trip-meta .button,
+.trip-gate .button {
+  padding: 0.22rem 0.42rem;
+  border-radius: 0.35rem;
+  /* font-size: 0.72rem; */
+}

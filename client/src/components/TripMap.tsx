@@ -5,6 +5,7 @@ import type { LocationTodo, TripRole } from '../types'
 import { createLocationMarkerElement, markerLabelText } from '../lib/tripMapMarkers'
 import { openCreateLocationPopup } from '../lib/tripMapPopup'
 import { buildFocusBounds } from '../lib/mapViewport'
+import './TripMap.css'
 
 type FocusRequest = {
   longitude: number

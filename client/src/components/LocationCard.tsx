@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { ClientAction, LocationTodo } from "../types";
+import "./LocationCard.css";
 
 type LocationCardProps = {
   location: LocationTodo;
@@ -9,37 +10,87 @@ type LocationCardProps = {
   onFocusLocation: (longitude: number, latitude: number) => void;
 };
 
+type EditorState =
+  | { kind: "location" }
+  | { kind: "item"; itemId: string }
+  | null;
+
 const LocationCardComponent = ({
   location,
   onAction,
   canEdit,
   onFocusLocation,
 }: LocationCardProps) => {
-  const [locationName, setLocationName] = useState(location.name);
+  const [editorState, setEditorState] = useState<EditorState>(null);
+  const [editorDraft, setEditorDraft] = useState("");
   const [newItemText, setNewItemText] = useState("");
-  const [itemDrafts, setItemDrafts] = useState<Record<string, string>>({});
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    setLocationName(location.name);
-    setItemDrafts(
-      Object.fromEntries(location.items.map((item) => [item.id, item.text])),
-    );
-  }, [location]);
-
-  const doneCount = location.items.filter((item) => item.done).length;
-
-  const submitRename = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = locationName.trim();
-    if (!trimmed || trimmed === location.name || !canEdit) {
+    if (!editorState) {
       return;
     }
 
-    onAction({
-      type: "rename_location",
-      locationId: location.id,
-      name: trimmed,
-    });
+    if (editorState.kind === "location") {
+      setEditorDraft(location.name);
+      return;
+    }
+
+    const item = location.items.find((entry) => entry.id === editorState.itemId);
+    setEditorDraft(item?.text ?? "");
+  }, [editorState, location]);
+
+  const doneCount = location.items.filter((item) => item.done).length;
+
+  const openLocationEditor = () => {
+    setEditorState({ kind: "location" });
+    setEditorDraft(location.name);
+  };
+
+  const openItemEditor = (itemId: string) => {
+    const item = location.items.find((entry) => entry.id === itemId);
+    setEditorState({ kind: "item", itemId });
+    setEditorDraft(item?.text ?? "");
+  };
+
+  const closeEditor = () => {
+    setEditorState(null);
+    setEditorDraft("");
+  };
+
+  const submitEditor = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editorState || !canEdit) {
+      return;
+    }
+
+    const trimmed = editorDraft.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    if (editorState.kind === "location") {
+      if (trimmed !== location.name) {
+        onAction({
+          type: "rename_location",
+          locationId: location.id,
+          name: trimmed,
+        });
+      }
+    } else {
+      const item = location.items.find((entry) => entry.id === editorState.itemId);
+      if (item && trimmed !== item.text) {
+        onAction({
+          type: "update_item",
+          locationId: location.id,
+          itemId: item.id,
+          text: trimmed,
+        });
+      }
+    }
+
+    closeEditor();
   };
 
   const addItem = (event: FormEvent<HTMLFormElement>) => {
@@ -55,6 +106,12 @@ const LocationCardComponent = ({
       text: trimmed,
     });
     setNewItemText("");
+    setIsAddingItem(false);
+  };
+
+  const cancelAddItem = () => {
+    setNewItemText("");
+    setIsAddingItem(false);
   };
 
   return (
@@ -63,176 +120,96 @@ const LocationCardComponent = ({
       data-location-id={location.id}
       className="location-card"
     >
-      <form className="location-header" onSubmit={submitRename}>
-        <div>
-          <label
-            className="field-label"
-            htmlFor={`location-name-${location.id}`}
+      <div className="location-header">
+        <div className="location-title-line">
+          <button
+            type="button"
+            className="button subtle caret-toggle"
+            onClick={() => setIsCollapsed((current) => !current)}
+            aria-expanded={!isCollapsed}
+            aria-label={isCollapsed ? "Expand location" : "Collapse location"}
           >
-            Location - {doneCount}/{location.items.length} done
-          </label>
-          <div className="location-title-row">
-            <input
-              id={`location-name-${location.id}`}
-              value={locationName}
-              onChange={(event) => setLocationName(event.target.value)}
-              style={{ border: !canEdit ? "none" : undefined }}
-              className="location-title-input"
-              disabled={!canEdit}
-            />
-            <button
-              type="button"
-              className="button subtle location-focus-button"
-              style={{ border: "none", padding: 0 }}
-              onClick={() =>
-                onFocusLocation(location.longitude, location.latitude)
-              }
-              aria-label="View on map"
-              title="View on map"
-            >
-              <svg
-                className="button-icon"
-                viewBox="0 -2 24 24"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  d="M12 2a5.5 5.5 0 0 1 5.5 5.5c0 4.18-4.4 9.35-5.1 10.15a.5.5 0 0 1-.76 0c-.7-.8-5.14-5.97-5.14-10.15A5.5 5.5 0 0 1 12 2Zm0 2a3.5 3.5 0 0 0-3.5 3.5c0 2.38 2.2 5.63 3.5 7.31 1.28-1.68 3.5-4.93 3.5-7.31A3.5 3.5 0 0 0 12 4Zm0 1.75A1.75 1.75 0 1 1 10.25 7.5 1.75 1.75 0 0 1 12 5.75Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
+            {isCollapsed ? "▸" : "▾"}
+          </button>
+          <div className="location-title-wrapper">
+            <div className="location-title">{location.name}</div>
+            <div className="location-subtitle">{doneCount}/{location.items.length} tasks</div>
           </div>
         </div>
-        {canEdit && (
-          <div className="location-actions">
-            <button
-              type="submit"
-              disabled={
-                !canEdit ||
-                locationName.trim().length === 0 ||
-                locationName.trim() === location.name
-              }
-              className="button subtle location-focus-button"
-              style={{ border: "none", padding: 0 }}
-              aria-label="Save location name"
-              title="Save location name"
-            >
-              <svg
-                className="button-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  d="M5 3.5A1.5 1.5 0 0 0 3.5 5v14A1.5 1.5 0 0 0 5 20.5h14a1.5 1.5 0 0 0 1.5-1.5V8.62a1.5 1.5 0 0 0-.44-1.06l-3.62-3.62A1.5 1.5 0 0 0 15.38 3.5H5Zm1 1.5h7v4H6V5Zm0 6.5h12V19H6v-7.5Zm3 2a.75.75 0 0 0-.75.75v3a.75.75 0 0 0 1.5 0V15h6v2.25a.75.75 0 0 0 1.5 0v-3a.75.75 0 0 0-.75-.75H9Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
-
+        <div className="location-actions location-actions-below">
+          {canEdit ? (
             <button
               type="button"
-              className="button danger location-focus-button"
-              style={{ border: "none", padding: 0 }}
-              disabled={!canEdit}
+              className="button subtle location-action-button"
+              onClick={openLocationEditor}
+            >
+              Edit
+            </button>
+          ) : null}
+
+          {canEdit ? (
+            <button
+              type="button"
+              className="button danger location-action-button"
               onClick={() =>
                 onAction({
                   type: "delete_location",
                   locationId: location.id,
                 })
               }
-              aria-label="Delete location"
-              title="Delete location"
             >
-              <svg
-                className="button-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  d="M9 3.5a1 1 0 0 0-1 1V6H5a.75.75 0 0 0 0 1.5h.73l.85 11.26A2.25 2.25 0 0 0 8.82 20.9h6.36a2.25 2.25 0 0 0 2.24-2.14l.85-11.26H19a.75.75 0 0 0 0-1.5h-3V4.5a1 1 0 0 0-1-1H9Zm1.5 2.5V5h3v1H10.5Zm-2.12 1.5h7.24l-.84 11.13a.75.75 0 0 1-.75.72H10a.75.75 0 0 1-.75-.72L8.38 7.5Zm2.12 2.1a.75.75 0 0 0-.75.75v5.7a.75.75 0 0 0 1.5 0v-5.7a.75.75 0 0 0-.75-.75Zm3 0a.75.75 0 0 0-.75.75v5.7a.75.75 0 0 0 1.5 0v-5.7a.75.75 0 0 0-.75-.75Z"
-                  fill="currentColor"
-                />
-              </svg>
+              Delete
             </button>
-          </div>
-        )}
-      </form>
+          ) : null}
 
-      <ul className="items-list">
-        {location.items.map((item) => {
-          const draft = itemDrafts[item.id] ?? "";
-          const trimmedDraft = draft.trim();
-          const isUnchanged = trimmedDraft === item.text;
+          <button
+            type="button"
+            className="button subtle location-action-button"
+            onClick={() =>
+              onFocusLocation(location.longitude, location.latitude)
+            }
+          >
+            Zoom
+          </button>
+        </div>
+      </div>
 
-          return (
-            <li key={item.id} className="todo-item-row">
-              <label className="checkbox-wrap">
-                <input
-                  type="checkbox"
-                  checked={item.done}
-                  disabled={!canEdit}
-                  onChange={(event) =>
-                    onAction({
-                      type: "toggle_item",
-                      locationId: location.id,
-                      itemId: item.id,
-                      done: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <input
-                style={{ border: !canEdit ? "none" : undefined }}
-                className={`todo-item-input ${item.done ? "is-done" : ""}`}
-                value={draft}
-                disabled={!canEdit}
-                onChange={(event) =>
-                  setItemDrafts((previous) => ({
-                    ...previous,
-                    [item.id]: event.target.value,
-                  }))
-                }
-              />
-              {canEdit && (
-                <>
-                  <button
-                    type="button"
-                    className="button subtle location-focus-button"
-                    style={{ border: "none", padding: 0 }}
-                    disabled={
-                      !canEdit || trimmedDraft.length === 0 || isUnchanged
-                    }
-                    onClick={() =>
+      {!isCollapsed ? (
+        <>
+          <ul className="items-list">
+            {location.items.map((item) => (
+              <li key={item.id} className="todo-item-row">
+                <label className="checkbox-wrap">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    disabled={!canEdit}
+                    onChange={(event) =>
                       onAction({
-                        type: "update_item",
+                        type: "toggle_item",
                         locationId: location.id,
                         itemId: item.id,
-                        text: trimmedDraft,
+                        done: event.target.checked,
                       })
                     }
-                    aria-label="Save item"
-                    title="Save item"
-                  >
-                    <svg
-                      className="button-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path
-                        d="M5 3.5A1.5 1.5 0 0 0 3.5 5v14A1.5 1.5 0 0 0 5 20.5h14a1.5 1.5 0 0 0 1.5-1.5V8.62a1.5 1.5 0 0 0-.44-1.06l-3.62-3.62A1.5 1.5 0 0 0 15.38 3.5H5Zm1 1.5h7v4H6V5Zm0 6.5h12V19H6v-7.5Zm3 2a.75.75 0 0 0-.75.75v3a.75.75 0 0 0 1.5 0V15h6v2.25a.75.75 0 0 0 1.5 0v-3a.75.75 0 0 0-.75-.75H9Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </button>
+                  />
+                </label>
+                <span className={`todo-item-text ${item.done ? "is-done" : ""}`}>
+                  {item.text}
+                </span>
+                {canEdit ? (
                   <button
                     type="button"
-                    className="button danger location-focus-button"
-                    style={{ border: "none", padding: 0 }}
-                    disabled={!canEdit}
+                    className="button subtle location-action-button"
+                    onClick={() => openItemEditor(item.id)}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="button danger location-action-button"
                     onClick={() =>
                       onAction({
                         type: "delete_item",
@@ -240,51 +217,95 @@ const LocationCardComponent = ({
                         itemId: item.id,
                       })
                     }
-                    aria-label="Delete item"
-                    title="Delete item"
                   >
-                    <svg
-                      className="button-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path
-                        d="M9 3.5a1 1 0 0 0-1 1V6H5a.75.75 0 0 0 0 1.5h.73l.85 11.26A2.25 2.25 0 0 0 8.82 20.9h6.36a2.25 2.25 0 0 0 2.24-2.14l.85-11.26H19a.75.75 0 0 0 0-1.5h-3V4.5a1 1 0 0 0-1-1H9Zm1.5 2.5V5h3v1H10.5Zm-2.12 1.5h7.24l-.84 11.13a.75.75 0 0 1-.75.72H10a.75.75 0 0 1-.75-.72L8.38 7.5Zm2.12 2.1a.75.75 0 0 0-.75.75v5.7a.75.75 0 0 0 1.5 0v-5.7a.75.75 0 0 0-.75-.75Zm3 0a.75.75 0 0 0-.75.75v5.7a.75.75 0 0 0 1.5 0v-5.7a.75.75 0 0 0-.75-.75Z"
-                        fill="currentColor"
-                      />
-                    </svg>
+                    Delete
                   </button>
-                </>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                ) : null}
+              </li>
+            ))}
+          </ul>
 
-      {canEdit && (
-        <form className="new-item-form" onSubmit={addItem}>
-          <label className="field-label" htmlFor={`new-item-${location.id}`}>
-            Add item
-          </label>
-          <div className="row">
-            <input
-              id={`new-item-${location.id}`}
-              value={newItemText}
-              onChange={(event) => setNewItemText(event.target.value)}
-              placeholder="e.g. Take photos of storefront"
-              disabled={!canEdit}
-            />
-            <button
-              type="submit"
-              className="button primary"
-              disabled={!canEdit || newItemText.trim().length === 0}
-            >
-              Add
-            </button>
+          {canEdit ? (
+            isAddingItem ? (
+              <form className="new-item-form" onSubmit={addItem}>
+                <input
+                  id={`new-item-${location.id}`}
+                  className="new-item-input"
+                  value={newItemText}
+                  onChange={(event) => setNewItemText(event.target.value)}
+                  onBlur={() => {
+                    if (newItemText.trim().length === 0) {
+                      cancelAddItem();
+                    }
+                  }}
+                  placeholder="Add task"
+                  autoFocus
+                />
+                <div className="new-item-actions">
+                  <button
+                    type="submit"
+                    className="button primary location-action-button"
+                    disabled={newItemText.trim().length === 0}
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    className="button subtle location-action-button"
+                    onClick={cancelAddItem}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="button subtle add-task-button"
+                onClick={() => setIsAddingItem(true)}
+                aria-label="Add task"
+                title="Add task"
+              >
+                +
+              </button>
+            )
+          ) : null}
+        </>
+      ) : null}
+
+      {editorState && canEdit ? (
+        <div className="location-editor-backdrop" role="presentation" onClick={closeEditor}>
+          <div className="location-editor-dialog" role="dialog" aria-modal="true" aria-label={editorState.kind === "location" ? "Edit location" : "Edit task"} onClick={(event) => event.stopPropagation()}>
+            <form className="location-editor-form" onSubmit={submitEditor}>
+              <label className="field-label" htmlFor={`editor-${location.id}`}>
+                {editorState.kind === "location" ? "Edit location" : "Edit task"}
+              </label>
+              <input
+                id={`editor-${location.id}`}
+                value={editorDraft}
+                onChange={(event) => setEditorDraft(event.target.value)}
+                autoFocus
+              />
+              <div className="location-editor-actions">
+                <button
+                  type="button"
+                  className="button subtle location-action-button"
+                  onClick={closeEditor}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="button primary location-action-button"
+                  disabled={editorDraft.trim().length === 0}
+                >
+                  Save
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
-      )}
+        </div>
+      ) : null}
     </section>
   );
 };

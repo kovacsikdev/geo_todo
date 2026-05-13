@@ -1,8 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import {
+  canWriteTrip,
   createTrip,
   deleteTrip,
-  joinTrip,
+  joinTripByAccessId,
   removeConnectionId,
   updateTripData,
 } from './tripStore.js'
@@ -19,6 +20,7 @@ import type {
 type ConnectionContext = {
   connectionId: string
   tripId: string | null
+  role: 'owner' | 'guest' | null
   response: ServerResponse
   heartbeat: NodeJS.Timeout | null
 }
@@ -74,10 +76,14 @@ function parseTripState(data: string): TripState {
   return parsed as TripState
 }
 
-function normalizeTripStateData(tripId: string, rawData: string): string {
+function normalizeTripStateData(tripId: string, rawData: string, strictTripIdMatch = true): string {
   const state = parseTripState(rawData)
-  if (state.trip.id !== tripId) {
+  if (strictTripIdMatch && state.trip.id !== tripId) {
     throw new Error('Trip data trip.id must match the provided tripId.')
+  }
+
+  if (!strictTripIdMatch) {
+    state.trip.id = tripId
   }
 
   return JSON.stringify(state)
@@ -88,12 +94,12 @@ function parseJoinTripPayload(payload: unknown): JoinTripPayload {
     throw new Error('joinTrip payload is required.')
   }
 
-  const tripId = asTrimmedString(payload.tripId)
-  if (!tripId) {
-    throw new Error('tripId is required.')
+  const accessId = asTrimmedString(payload.accessId)
+  if (!accessId) {
+    throw new Error('accessId is required.')
   }
 
-  return { tripId }
+  return { accessId }
 }
 
 function parseCreateTripPayload(payload: unknown): CreateTripPayload {
@@ -101,13 +107,12 @@ function parseCreateTripPayload(payload: unknown): CreateTripPayload {
     throw new Error('createTrip payload is required.')
   }
 
-  const tripId = asTrimmedString(payload.tripId)
   const data = asTrimmedString(payload.data)
-  if (!tripId || !data) {
-    throw new Error('tripId and data are required.')
+  if (!data) {
+    throw new Error('data is required.')
   }
 
-  return { tripId, data }
+  return { data }
 }
 
 function parseUpdateTripPayload(payload: unknown): UpdateTripPayload {
@@ -116,12 +121,13 @@ function parseUpdateTripPayload(payload: unknown): UpdateTripPayload {
   }
 
   const tripId = asTrimmedString(payload.tripId)
+  const ownerId = asTrimmedString(payload.ownerId)
   const data = asTrimmedString(payload.data)
-  if (!tripId || !data) {
-    throw new Error('tripId and data are required.')
+  if (!tripId || !ownerId || !data) {
+    throw new Error('tripId, ownerId, and data are required.')
   }
 
-  return { tripId, data }
+  return { tripId, ownerId, data }
 }
 
 function parseDeleteTripPayload(payload: unknown): DeleteTripPayload {
@@ -130,11 +136,12 @@ function parseDeleteTripPayload(payload: unknown): DeleteTripPayload {
   }
 
   const tripId = asTrimmedString(payload.tripId)
-  if (!tripId) {
-    throw new Error('tripId is required.')
+  const ownerId = asTrimmedString(payload.ownerId)
+  if (!tripId || !ownerId) {
+    throw new Error('tripId and ownerId are required.')
   }
 
-  return { tripId }
+  return { tripId, ownerId }
 }
 
 async function detachFromPreviousTrip(
@@ -154,13 +161,6 @@ async function detachFromPreviousTrip(
       connectionIdsByTripId.delete(currentTripId)
     }
   }
-}
-
-function sendResponse(
-  response: ServerResponse,
-  response_: Extract<ServerMessage, { type: 'response' }>,
-): void {
-  sendSSEMessage(response, response_)
 }
 
 function emitTripState(record: TripRecord, connectionIds?: string[]): void {
@@ -214,7 +214,6 @@ async function handleClientMessage(
   connectionId: string,
   action: string,
   payload: unknown,
-  requestId: string | null,
 ): Promise<{ ok: boolean; payload?: unknown; error?: string }> {
   const context = clientsByConnectionId.get(connectionId)
   if (!context) {
@@ -229,80 +228,79 @@ async function handleClientMessage(
     switch (action) {
       case 'createTrip': {
         const parsed = parseCreateTripPayload(payload)
-        const normalizedData = normalizeTripStateData(parsed.tripId, parsed.data)
-        await detachFromPreviousTrip(context.tripId, parsed.tripId, context.connectionId)
-
-        const record = await createTrip(parsed.tripId, context.connectionId, normalizedData)
-        context.tripId = parsed.tripId
-        
-        if (!connectionIdsByTripId.has(parsed.tripId)) {
-          connectionIdsByTripId.set(parsed.tripId, new Set())
+        try {
+          // Just validate data can be parsed; createTrip will generate the real tripId
+          parseTripState(parsed.data)
+        } catch (e) {
+          throw new Error('Invalid trip data format.')
         }
-        connectionIdsByTripId.get(parsed.tripId)?.add(context.connectionId)
+        
+        const record = await createTrip(context.connectionId, parsed.data)
+        
+        // Now normalize the data with the actual generated tripId
+        const normalizedData = normalizeTripStateData(record.tripId, parsed.data, false)
+        const updatedRecord = await updateTripData(record.tripId, normalizedData)
+        if (!updatedRecord) {
+          throw new Error('Failed to persist trip data after creating trip.')
+        }
+        
+        await detachFromPreviousTrip(context.tripId, record.tripId, context.connectionId)
+        context.tripId = record.tripId
+        context.role = 'owner'
+        
+        if (!connectionIdsByTripId.has(record.tripId)) {
+          connectionIdsByTripId.set(record.tripId, new Set())
+        }
+        connectionIdsByTripId.get(record.tripId)?.add(context.connectionId)
 
-        emitTripState(record, [context.connectionId])
-        return { ok: true, payload: { tripId: parsed.tripId } }
+        emitTripState(updatedRecord, [context.connectionId])
+        return {
+          ok: true,
+          payload: {
+            tripId: record.tripId,
+            role: 'owner',
+            ownerId: record.ownerId,
+            guestId: record.guestId,
+          },
+        }
       }
 
       case 'joinTrip': {
         const parsed = parseJoinTripPayload(payload)
-        await detachFromPreviousTrip(context.tripId, parsed.tripId, context.connectionId)
-
-        const record = await joinTrip(parsed.tripId, context.connectionId)
-        if (!record) {
+        const joined = await joinTripByAccessId(parsed.accessId, context.connectionId)
+        if (!joined) {
           return { ok: false, error: 'Trip not found.' }
         }
 
-        context.tripId = parsed.tripId
+        await detachFromPreviousTrip(context.tripId, joined.record.tripId, context.connectionId)
+
+        const { record, role } = joined
+
+        context.tripId = record.tripId
+        context.role = role
         
-        if (!connectionIdsByTripId.has(parsed.tripId)) {
-          connectionIdsByTripId.set(parsed.tripId, new Set())
+        if (!connectionIdsByTripId.has(record.tripId)) {
+          connectionIdsByTripId.set(record.tripId, new Set())
         }
-        connectionIdsByTripId.get(parsed.tripId)?.add(context.connectionId)
+        connectionIdsByTripId.get(record.tripId)?.add(context.connectionId)
 
         emitTripState(record, [context.connectionId])
-        return { ok: true, payload: { tripId: parsed.tripId } }
+        return {
+          ok: true,
+          payload: {
+            tripId: record.tripId,
+            role,
+            ...(role === 'owner' ? { ownerId: record.ownerId, guestId: record.guestId } : {}),
+          },
+        }
       }
 
       case 'updateTrip': {
-        const parsed = parseUpdateTripPayload(payload)
-        const normalizedData = normalizeTripStateData(parsed.tripId, parsed.data)
-        if (context.tripId && context.tripId !== parsed.tripId) {
-          return { ok: false, error: 'Join the trip before updating it.' }
-        }
-
-        const record = await updateTripData(parsed.tripId, normalizedData)
-        if (!record) {
-          return { ok: false, error: 'Trip not found.' }
-        }
-
-        context.tripId = parsed.tripId
-        
-        if (!connectionIdsByTripId.has(parsed.tripId)) {
-          connectionIdsByTripId.set(parsed.tripId, new Set())
-        }
-        connectionIdsByTripId.get(parsed.tripId)?.add(context.connectionId)
-
-        emitTripState(record)
-        return { ok: true, payload: { tripId: parsed.tripId } }
+        return { ok: false, error: 'Use owner API requests for trip updates.' }
       }
 
       case 'deleteTrip': {
-        const parsed = parseDeleteTripPayload(payload)
-        if (context.tripId && context.tripId !== parsed.tripId) {
-          return { ok: false, error: 'Join the trip before deleting it.' }
-        }
-
-        const record = await deleteTrip(parsed.tripId)
-        if (!record) {
-          return { ok: false, error: 'Trip not found.' }
-        }
-
-        emitTripDeleted(record)
-        clearTripFromContexts(parsed.tripId)
-        connectionIdsByTripId.delete(parsed.tripId)
-        context.tripId = null
-        return { ok: true, payload: { tripId: parsed.tripId } }
+        return { ok: false, error: 'Use owner API requests for trip deletion.' }
       }
 
       default:
@@ -321,6 +319,7 @@ export function handleSSEConnection(req: IncomingMessage, res: ServerResponse): 
   const context: ConnectionContext = {
     connectionId,
     tripId: null,
+    role: null,
     response: res,
     heartbeat: null,
   }
@@ -373,6 +372,8 @@ export function handleSSEConnection(req: IncomingMessage, res: ServerResponse): 
         }
       }
     }
+
+    context.role = null
   }
 
   // Handle client disconnect
@@ -401,25 +402,56 @@ async function handleOwnerAction(
     switch (action) {
       case 'createTrip': {
         const parsed = parseCreateTripPayload(payload)
-        const normalizedData = normalizeTripStateData(parsed.tripId, parsed.data)
-        await createTrip(parsed.tripId, null, normalizedData)
-        return { ok: true, payload: { tripId: parsed.tripId } }
+        try {
+          parseTripState(parsed.data)
+        } catch (e) {
+          throw new Error('Invalid trip data format.')
+        }
+        
+        const record = await createTrip(null, parsed.data)
+        const normalizedData = normalizeTripStateData(record.tripId, parsed.data, false)
+        const updatedRecord = await updateTripData(record.tripId, normalizedData)
+        if (!updatedRecord) {
+          throw new Error('Failed to persist trip data after creating trip.')
+        }
+        
+        return {
+          ok: true,
+          payload: {
+            tripId: record.tripId,
+            role: 'owner',
+            ownerId: record.ownerId,
+            guestId: record.guestId,
+          },
+        }
       }
 
       case 'updateTrip': {
         const parsed = parseUpdateTripPayload(payload)
         const normalizedData = normalizeTripStateData(parsed.tripId, parsed.data)
+        const canWrite = await canWriteTrip(parsed.tripId, parsed.ownerId)
+        if (!canWrite) {
+          return { ok: false, error: 'Forbidden: owner credentials required for trip updates.' }
+        }
+
+        // DB update completes before emitting SSE, so guests receive committed state.
         const record = await updateTripData(parsed.tripId, normalizedData)
         if (!record) {
           return { ok: false, error: 'Trip not found.' }
         }
-        // Notify all connected guests
+
         emitTripState(record)
         return { ok: true, payload: { tripId: parsed.tripId } }
       }
 
       case 'deleteTrip': {
         const parsed = parseDeleteTripPayload(payload)
+        const canWrite = await canWriteTrip(parsed.tripId, parsed.ownerId)
+        if (!canWrite) {
+          return { ok: false, error: 'Forbidden: owner credentials required for trip deletion.' }
+        }
+
+        // DB delete completes before emitting SSE deletion events.
         const record = await deleteTrip(parsed.tripId)
         if (!record) {
           return { ok: false, error: 'Trip not found.' }
@@ -465,7 +497,7 @@ export async function handleTripAction(
       return { ...result, action, requestId: null }
     }
 
-    const result = await handleClientMessage(connectionId, action, payload, requestId)
+    const result = await handleClientMessage(connectionId, action, payload)
 
     return {
       ...result,

@@ -25,6 +25,8 @@ export type TripState = {
 
 export type TripRecord = {
   tripId: string
+  ownerId: string
+  guestId: string
   connectionIds: string[]
   data: string
   revision: number
@@ -33,21 +35,22 @@ export type TripRecord = {
 export type SocketAction = 'joinTrip' | 'createTrip' | 'updateTrip' | 'deleteTrip'
 
 export type JoinTripPayload = {
-  tripId: string
+  accessId: string
 }
 
 export type CreateTripPayload = {
-  tripId: string
   data: string
 }
 
 export type UpdateTripPayload = {
   tripId: string
+  ownerId: string
   data: string
 }
 
 export type DeleteTripPayload = {
   tripId: string
+  ownerId: string
 }
 
 export type ClientSocketMessage = {

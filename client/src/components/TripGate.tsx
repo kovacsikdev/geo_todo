@@ -1,13 +1,14 @@
 import type { FormEvent } from 'react'
 import { memo } from 'react'
+import "./TripGate.css"
 
 type TripGateProps = {
   connected: boolean
   busy: boolean
   tripNameDraft: string
-  tripIdDraft: string
+  accessIdDraft: string
   onTripNameDraftChange: (value: string) => void
-  onTripIdDraftChange: (value: string) => void
+  onAccessIdDraftChange: (value: string) => void
   onCreateTrip: (event: FormEvent<HTMLFormElement>) => void
   onJoinTrip: (event: FormEvent<HTMLFormElement>) => void
 }
@@ -16,9 +17,9 @@ const TripGateComponent = ({
   connected,
   busy,
   tripNameDraft,
-  tripIdDraft,
+  accessIdDraft,
   onTripNameDraftChange,
-  onTripIdDraftChange,
+  onAccessIdDraftChange,
   onCreateTrip,
   onJoinTrip,
 }: TripGateProps) => {
@@ -26,44 +27,43 @@ const TripGateComponent = ({
 
   return (
     <section className="trip-gate">
-      {!connected ? (
-        <p className="map-selection-hint" role="status" aria-live="polite">
-          Reconnecting to collaboration server. Create and Join are temporarily disabled.
-        </p>
-      ) : null}
+      <p className="trip-gate-intro">Create a new trip or join an existing one</p>
 
       <form className="trip-gate-form" onSubmit={onCreateTrip}>
         <label className="field-label" htmlFor="new-trip-name">
-          Create a new trip
+          Create
         </label>
-        <div className="row">
+        <div className="row trip-gate-row">
           <input
             id="new-trip-name"
             value={tripNameDraft}
             onChange={(event) => onTripNameDraftChange(event.target.value)}
             placeholder="e.g. Summer in Lisbon"
           />
-          <button type="submit" style={{width: '100px'}} className="button primary" disabled={disabled || tripNameDraft.trim().length === 0}>
-            Create trip
+          <button type="submit" className="button primary trip-gate-button" disabled={disabled || tripNameDraft.trim().length === 0}>
+            Create
           </button>
         </div>
+        <p className="gate-note">Creating a trip will generate a new Owner ID and Guest ID</p>
       </form>
 
       <form className="trip-gate-form" onSubmit={onJoinTrip}>
-        <label className="field-label" htmlFor="join-trip-id">
-          Join with shared trip ID
+        <label className="field-label" htmlFor="join-access-id">
+          Join with Owner or Guest ID:
         </label>
-        <div className="row">
+        <div className="row trip-gate-row">
           <input
-            id="join-trip-id"
-            value={tripIdDraft}
-            onChange={(event) => onTripIdDraftChange(event.target.value)}
-            placeholder="Paste trip ID"
+            id="join-access-id"
+            value={accessIdDraft}
+            onChange={(event) => onAccessIdDraftChange(event.target.value)}
+            placeholder="Paste owner ID or guest ID"
           />
-          <button type="submit" style={{width: '100px'}} className="button subtle" disabled={disabled || tripIdDraft.trim().length === 0}>
-            Join trip
+          <button type="submit" className="button subtle trip-gate-button" disabled={disabled || accessIdDraft.trim().length === 0}>
+            Join
           </button>
         </div>
+        <p className="gate-note">Enter Owner ID: Gives ability to add and edit tasks</p>
+        <p className="gate-note">Enter Guest ID: Read only access</p>
       </form>
     </section>
   )

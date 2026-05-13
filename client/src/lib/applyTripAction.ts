@@ -52,7 +52,7 @@ export const applyTripAction = (state: SharedState, action: ClientAction): Share
     }
     case 'add_item': {
       const location = locateLocation(nextState, action.locationId)
-      location.items.unshift({
+      location.items.push({
         id: createId(),
         text: action.text,
         done: false,

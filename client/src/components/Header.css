@@ -1,0 +1,32 @@
+#Header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: var(--color-tertiary);
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid;
+  border-image: linear-gradient(
+      to right,
+      #fff 0%,
+      var(--color-secondary) 10%,
+      var(--color-secondary) 90%,
+      #fff 100%
+    )
+    1;
+}
+
+@media (max-width: 480px) {
+  #Header {
+    flex-direction: column;
+    justify-content: center;
+    padding-bottom: 0.5rem;
+  }
+
+  #Header h1 {
+    font-size: 1.5rem;
+    margin: 0.5rem 0;
+  }
+}

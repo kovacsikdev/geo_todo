@@ -1,0 +1,11 @@
+#Footer {
+  border-top: 1px solid;
+  border-image: linear-gradient(
+      to right,
+      #fff 0%,
+      var(--color-secondary) 20%,
+      var(--color-secondary) 80%,
+      #fff 100%
+    )
+    1;
+}

@@ -1,9 +1,8 @@
 import { useCallback } from "react";
 import type { FormEvent } from "react";
 import { applyTripAction } from "../lib/applyTripAction";
-import { createTripId } from "../lib/tripClientProtocol";
 import {
-  isOwnerTrip,
+  getOwnerIdForTrip,
   removeOwnerTrip,
   saveOwnerTrip,
 } from "../lib/organizerKeyStorage";
@@ -33,16 +32,24 @@ type UseTripActionsOptions = {
   // SSE connection state — used only to guard the guest joinTrip action
   connected: boolean;
   tripNameDraft: string;
-  tripIdDraft: string;
+  accessIdDraft: string;
   activeTripId: string;
+  ownerId: string;
   sharedState: SharedState;
   tripRole: TripRole;
-  joinTripViaSSE: (tripId: string) => Promise<void>;
+  joinTripViaSSE: (accessId: string) => Promise<{
+    tripId: string;
+    role: "owner" | "guest";
+    ownerId?: string;
+    guestId?: string;
+  }>;
   setBusy: (value: boolean) => void;
   setActiveTripId: (value: string) => void;
+  setOwnerId: (value: string) => void;
+  setGuestId: (value: string) => void;
+  setAccessIdDraft: (value: string) => void;
   setSharedState: (value: SharedState) => void;
   setTripRole: (value: TripRole) => void;
-  setTripIdDraft: (value: string) => void;
   showToast: (message: string, kind?: ToastKind) => void;
   emptyState: SharedState;
 };
@@ -51,24 +58,38 @@ export function useTripActions({
   serverUrl,
   connected,
   tripNameDraft,
-  tripIdDraft,
+  accessIdDraft,
   activeTripId,
+  ownerId,
   sharedState,
   tripRole,
   joinTripViaSSE,
   setBusy,
   setActiveTripId,
+  setOwnerId,
+  setGuestId,
+  setAccessIdDraft,
   setSharedState,
   setTripRole,
-  setTripIdDraft,
   showToast,
   emptyState,
 }: UseTripActionsOptions) {
   const leaveTrip = useCallback(() => {
     setActiveTripId("");
+    setOwnerId("");
+    setGuestId("");
+    setAccessIdDraft("");
     setSharedState(emptyState);
     setTripRole("guest");
-  }, [emptyState, setActiveTripId, setSharedState, setTripRole]);
+  }, [
+    emptyState,
+    setAccessIdDraft,
+    setActiveTripId,
+    setGuestId,
+    setOwnerId,
+    setSharedState,
+    setTripRole,
+  ]);
 
   const createTrip = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -81,27 +102,48 @@ export function useTripActions({
 
       setBusy(true);
       try {
-        const nextTripId = createTripId();
+        // Server will generate the trip ID; use placeholder for now
         const nextState: SharedState = {
           trip: {
-            id: nextTripId,
+            id: 'pending',
             name: trimmedName,
           },
           locations: [],
           updatedAt: new Date().toISOString(),
         };
 
-        await ownerFetch(serverUrl, "createTrip", {
-          tripId: nextTripId,
+        const payload = (await ownerFetch(serverUrl, "createTrip", {
           data: JSON.stringify(nextState),
-        });
+        })) as { tripId: string; ownerId?: string; guestId?: string };
 
-        saveOwnerTrip(nextTripId);
-        setSharedState(nextState);
+        const createdTripId = payload.tripId;
+        const createdOwnerId = payload.ownerId;
+        const createdGuestId = payload.guestId;
+        if (!createdTripId || !createdOwnerId || !createdGuestId) {
+          throw new Error("Server did not return trip/owner/guest IDs.");
+        }
+
+        // Update the trip state with the actual server-generated trip ID
+        const finalState: SharedState = {
+          trip: {
+            id: createdTripId,
+            name: trimmedName,
+          },
+          locations: [],
+          updatedAt: new Date().toISOString(),
+        };
+
+        saveOwnerTrip(createdTripId, createdOwnerId);
+        setSharedState(finalState);
         setTripRole("owner");
-        setActiveTripId(nextTripId);
-        setTripIdDraft(nextTripId);
-        showToast("Trip created. Share the ID with your guests!", "success");
+        setOwnerId(createdOwnerId);
+        setGuestId(createdGuestId);
+        setAccessIdDraft(createdOwnerId);
+        setActiveTripId(createdTripId);
+        showToast(
+          `Trip created. Guest ID: ${createdGuestId}. Keep owner ID private.`,
+          "success",
+        );
       } catch (error) {
         showToast(
           error instanceof Error ? error.message : "Unable to create trip.",
@@ -111,16 +153,15 @@ export function useTripActions({
       }
     },
     [
-      serverUrl,
-      tripNameDraft,
+      setActiveTripId,
+      setAccessIdDraft,
       setBusy,
+      setGuestId,
+      setOwnerId,
       setSharedState,
       setTripRole,
-      setActiveTripId,
-      setBusy,
-      setTripIdDraft,
-      setTripRole,
       showToast,
+      serverUrl,
       tripNameDraft,
     ],
   );
@@ -134,16 +175,30 @@ export function useTripActions({
         return;
       }
 
-      const trimmedId = tripIdDraft.trim();
+      const trimmedId = accessIdDraft.trim();
       if (!trimmedId) {
         return;
       }
 
       setBusy(true);
       try {
-        await joinTripViaSSE(trimmedId);
-        setTripRole(isOwnerTrip(trimmedId) ? "owner" : "guest");
-        setActiveTripId(trimmedId);
+        const joined = await joinTripViaSSE(trimmedId);
+        setActiveTripId(joined.tripId);
+        setTripRole(joined.role);
+
+        if (joined.role === "owner") {
+          const resolvedOwnerId = joined.ownerId ?? trimmedId;
+          saveOwnerTrip(joined.tripId, resolvedOwnerId);
+          setOwnerId(resolvedOwnerId);
+          setGuestId(joined.guestId ?? "");
+          setAccessIdDraft(resolvedOwnerId);
+        } else {
+          removeOwnerTrip(joined.tripId);
+          setOwnerId("");
+          setGuestId("");
+          setAccessIdDraft(trimmedId);
+        }
+
         showToast("Joined trip successfully.", "success");
       } catch (error) {
         showToast(error instanceof Error ? error.message : "Trip not found.");
@@ -155,15 +210,23 @@ export function useTripActions({
       connected,
       joinTripViaSSE,
       setActiveTripId,
+      setAccessIdDraft,
       setBusy,
+      setGuestId,
+      setOwnerId,
       setTripRole,
       showToast,
-      tripIdDraft,
+      accessIdDraft,
     ],
   );
 
   const deleteTrip = useCallback(async () => {
     if (tripRole !== "owner" || !activeTripId) {
+      return;
+    }
+
+    if (!ownerId) {
+      showToast("Missing owner ID for delete request.");
       return;
     }
 
@@ -176,7 +239,10 @@ export function useTripActions({
 
     setBusy(true);
     try {
-      await ownerFetch(serverUrl, "deleteTrip", { tripId: activeTripId });
+      await ownerFetch(serverUrl, "deleteTrip", {
+        tripId: activeTripId,
+        ownerId,
+      });
       removeOwnerTrip(activeTripId);
       leaveTrip();
     } catch (error) {
@@ -186,7 +252,15 @@ export function useTripActions({
     } finally {
       setBusy(false);
     }
-  }, [activeTripId, serverUrl, leaveTrip, setBusy, showToast, tripRole]);
+  }, [
+    activeTripId,
+    leaveTrip,
+    ownerId,
+    serverUrl,
+    setBusy,
+    showToast,
+    tripRole,
+  ]);
 
   const sendAction = useCallback(
     async (action: ClientAction) => {
@@ -200,10 +274,17 @@ export function useTripActions({
         return;
       }
 
+      const resolvedOwnerId = ownerId || getOwnerIdForTrip(activeTripId) || "";
+      if (!resolvedOwnerId) {
+        showToast("Missing owner ID for update request.");
+        return;
+      }
+
       try {
         const nextState = applyTripAction(sharedState, action);
         await ownerFetch(serverUrl, "updateTrip", {
           tripId: activeTripId,
+          ownerId: resolvedOwnerId,
           data: JSON.stringify(nextState),
         });
         setSharedState(nextState);
@@ -213,7 +294,15 @@ export function useTripActions({
         );
       }
     },
-    [activeTripId, serverUrl, sharedState, showToast, tripRole, setSharedState],
+    [
+      activeTripId,
+      ownerId,
+      serverUrl,
+      setSharedState,
+      sharedState,
+      showToast,
+      tripRole,
+    ],
   );
 
   return {

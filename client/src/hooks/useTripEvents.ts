@@ -8,15 +8,24 @@ type TripDeletedMessage = Extract<ServerMessage, { type: 'tripDeleted' }>
 type UseTripEventsOptions = {
   serverUrl: string
   activeTripIdRef: MutableRefObject<string>
+  activeAccessIdRef: MutableRefObject<string>
   onTripState: (message: TripStateMessage) => void
   onTripDeleted: (message: TripDeletedMessage) => void
   onReconnectJoinError: (error: Error) => void
   onSocketError: (message: string) => void
 }
 
+type JoinTripResult = {
+  tripId: string
+  role: 'owner' | 'guest'
+  ownerId?: string
+  guestId?: string
+}
+
 export const useTripEvents = ({
   serverUrl,
   activeTripIdRef,
+  activeAccessIdRef,
   onTripState,
   onTripDeleted,
   onReconnectJoinError,
@@ -30,7 +39,7 @@ export const useTripEvents = ({
 
   // Sends a joinTrip POST using the current SSE connectionId.
   // Called both on initial/reconnect and when the user explicitly joins a trip.
-  const joinTrip = useCallback(async (tripId: string): Promise<void> => {
+  const joinTrip = useCallback(async (accessId: string): Promise<JoinTripResult> => {
     if (!connectionIdRef.current) {
       throw new Error('Not connected to server.')
     }
@@ -40,15 +49,24 @@ export const useTripEvents = ({
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'joinTrip', payload: { tripId } }),
+        body: JSON.stringify({ action: 'joinTrip', payload: { accessId } }),
       },
     )
 
-    const data = (await res.json()) as { ok: boolean; error?: string }
+    const data = (await res.json()) as {
+      ok: boolean
+      payload?: JoinTripResult
+      error?: string
+    }
     if (!data.ok) {
       throw new Error(data.error ?? 'Trip not found.')
     }
-    // tripState arrives via SSE and is handled by onTripState
+    if (!data.payload) {
+      throw new Error('Missing join response payload.')
+    }
+
+    // tripState arrives via SSE and is handled by onTripState.
+    return data.payload
   }, [])
 
   useEffect(() => {
@@ -66,12 +84,12 @@ export const useTripEvents = ({
           hasConnectedRef.current = true
           setConnected(true)
 
-          if (!activeTripIdRef.current) {
+          if (!activeTripIdRef.current || !activeAccessIdRef.current) {
             return
           }
 
           // Re-join the active trip after a reconnect
-          void joinTrip(activeTripIdRef.current).catch((error: Error) => {
+          void joinTrip(activeAccessIdRef.current).catch((error: Error) => {
             onReconnectJoinError(error)
           })
           return
@@ -110,6 +128,7 @@ export const useTripEvents = ({
       eventSourceRef.current = null
     }
   }, [
+    activeAccessIdRef,
     activeTripIdRef,
     joinTrip,
     onReconnectJoinError,
