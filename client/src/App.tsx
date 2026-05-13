@@ -1,4 +1,4 @@
-import { Outlet } from '@tanstack/react-router';
+import { Outlet } from 'react-router-dom';
 import './App.css';
 
 

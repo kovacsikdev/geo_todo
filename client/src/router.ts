@@ -1,28 +1,22 @@
-import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router';
+import { createBrowserRouter } from 'react-router-dom';
+import React from 'react';
 import App from './App';
 import LandingPage from './LandingPage';
 import TripApp from './TripApp';
 
-const rootRoute = createRootRoute({
-  component: App,
-});
-
-const landingRoute = createRoute({
-  path: '/',
-  getParentRoute: () => rootRoute,
-  component: LandingPage,
-});
-
-const appRoute = createRoute({
-  path: '/app',
-  getParentRoute: () => rootRoute,
-  component: TripApp,
-});
-
-const routeTree = rootRoute.addChildren([landingRoute, appRoute]);
-
-const router = createRouter({
-  routeTree,
-});
-
-export { router };
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    element: React.createElement(App),
+    children: [
+      {
+        index: true,
+        element: React.createElement(LandingPage),
+      },
+      {
+        path: '/app',
+        element: React.createElement(TripApp),
+      },
+    ],
+  },
+]);

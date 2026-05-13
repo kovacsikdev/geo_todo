@@ -1,12 +1,12 @@
-import { useRouter } from '@tanstack/react-router';
+import { useNavigate } from 'react-router-dom';
 import "./Header.css";
 
 export const Header = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   return (
     <header id="Header">
       <h1 className="color-primary">Map Itinerary</h1>
-      <button className="cta-button" onClick={() => router.navigate({ to: '/app' })}>Go to App</button>
+      <button className="cta-button" onClick={() => navigate('/app')}>Go to App</button>
     </header>
   );
 }

@@ -1,12 +1,12 @@
 
 import { useState } from "react";
-import { useRouter } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import "./LandingPage.css";
 
 const LandingPage = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   return (
     <div id="LandingPage">
@@ -26,7 +26,7 @@ const LandingPage = () => {
           </p>
           <button
             className="cta-button"
-            onClick={() => router.navigate({ to: "/app" })}
+            onClick={() => navigate("/app")}
           >
             Go to App
           </button>
