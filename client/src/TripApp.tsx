@@ -11,14 +11,12 @@ import { TripHeader } from "./components/TripHeader";
 import { TripBoard } from "./components/TripBoard";
 import { ToastStack } from "./components/ToastStack";
 import {
-  clearActiveTripId,
-  loadActiveTripId,
-  saveActiveTripId,
+  loadActiveAccessId,
+  saveActiveAccessId,
 } from "./lib/activeTripStorage";
 import { useTripEvents } from "./hooks/useTripEvents";
 import { useToastQueue } from "./hooks/useToastQueue";
 import { useMenuLocationScroll } from "./hooks/useMenuLocationScroll";
-import { getOwnerIdForTrip, isOwnerTrip } from "./lib/organizerKeyStorage";
 import { useTripActions } from "./hooks/useTripActions";
 import type { SharedState, TripRole } from "./types";
 import "./TripApp.css";
@@ -53,40 +51,46 @@ type FocusRequest = {
   nonce: number;
 };
 
+const isStandaloneMode = (): boolean => {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+};
+
+const isIosSafari = (): boolean => {
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const isIos = /iphone|ipad|ipod/.test(userAgent);
+  const isWebKitSafari = /safari/.test(userAgent) && !/crios|fxios|edgios/.test(userAgent);
+  return isIos && isWebKitSafari;
+};
+
 const TripApp = () => {
   const [initialSession] = useState(() => {
-    const rawTripId = loadActiveTripId();
-    const persistedOwnerId = rawTripId ? getOwnerIdForTrip(rawTripId) ?? "" : "";
-    const persistedTripId = persistedOwnerId ? rawTripId : "";
+    const persistedAccessId = loadActiveAccessId();
     return {
-      persistedTripId,
-      persistedOwnerId,
-      initialRole:
-        persistedTripId && persistedOwnerId && isOwnerTrip(persistedTripId)
-          ? "owner"
-          : "guest",
+      persistedAccessId,
+      initialRole: "guest",
     } satisfies {
-      persistedTripId: string;
-      persistedOwnerId: string;
+      persistedAccessId: string;
       initialRole: TripRole;
     };
   });
 
   const activeTripIdRef = useRef("");
-  const activeAccessIdRef = useRef(initialSession.persistedOwnerId);
+  const activeAccessIdRef = useRef(initialSession.persistedAccessId);
   const [sharedState, setSharedState] = useState<SharedState>(EMPTY_STATE);
   const { toasts, showToast, dismissToast } = useToastQueue();
   const [tripNameDraft, setTripNameDraft] = useState("");
   const [accessIdDraft, setAccessIdDraft] = useState(
-    initialSession.persistedOwnerId,
+    initialSession.persistedAccessId,
   );
-  const [activeTripId, setActiveTripId] = useState(
-    initialSession.persistedTripId,
-  );
-  const [ownerId, setOwnerId] = useState(initialSession.persistedOwnerId);
+  const [activeTripId, setActiveTripId] = useState("");
+  const [ownerId, setOwnerId] = useState("");
   const [guestId, setGuestId] = useState("");
   const [busy, setBusy] = useState(false);
   const [tripRole, setTripRole] = useState<TripRole>(initialSession.initialRole);
+  const [installPromptEvent, setInstallPromptEvent] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(() => isStandaloneMode());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [pendingLocationScrollId, setPendingLocationScrollId] = useState<
     string | null
@@ -104,13 +108,52 @@ const TripApp = () => {
   }, [accessIdDraft]);
 
   useEffect(() => {
-    if (activeTripId) {
-      saveActiveTripId(activeTripId);
-      return;
+    if (activeTripId && accessIdDraft) {
+      saveActiveAccessId(accessIdDraft);
+    }
+  }, [activeTripId, accessIdDraft]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(display-mode: standalone)");
+
+    const syncStandaloneState = () => {
+      setIsStandalone(isStandaloneMode());
+    };
+
+    const handleBeforeInstallPrompt = (event: BeforeInstallPromptEvent) => {
+      event.preventDefault();
+      setInstallPromptEvent(event);
+      setInstallBannerDismissed(false);
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null);
+      setInstallBannerDismissed(true);
+      syncStandaloneState();
+      showToast("App installed. Open it from your home screen.", "success");
+    };
+
+    syncStandaloneState();
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncStandaloneState);
+    } else {
+      mediaQuery.addListener(syncStandaloneState);
     }
 
-    clearActiveTripId();
-  }, [activeTripId]);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", syncStandaloneState);
+      } else {
+        mediaQuery.removeListener(syncStandaloneState);
+      }
+    };
+  }, [showToast]);
 
   const clearPendingLocationScrollId = useCallback(() => {
     setPendingLocationScrollId(null);
@@ -130,7 +173,6 @@ const TripApp = () => {
       payload: SharedState;
     }) => {
       setSharedState(message.payload);
-      setTripRole(isOwnerTrip(message.tripId) ? "owner" : "guest");
       setTripNameDraft(message.payload.trip.name);
       if (!activeTripIdRef.current) {
         setActiveTripId(message.tripId);
@@ -162,6 +204,28 @@ const TripApp = () => {
     [showToast],
   );
 
+  const handleReconnectJoinSuccess = useCallback(
+    (joined: {
+      tripId: string;
+      role: "owner" | "guest";
+      ownerId?: string;
+      guestId?: string;
+    }) => {
+      setActiveTripId(joined.tripId);
+      setTripRole(joined.role);
+
+      if (joined.role === "owner") {
+        setOwnerId(joined.ownerId ?? activeAccessIdRef.current);
+        setGuestId(joined.guestId ?? "");
+        return;
+      }
+
+      setOwnerId("");
+      setGuestId("");
+    },
+    [],
+  );
+
   const handleSocketError = useCallback(
     (message: string) => {
       showToast(message);
@@ -171,10 +235,10 @@ const TripApp = () => {
 
   const { connected, joinTrip: joinTripViaSSE } = useTripEvents({
     serverUrl: SERVER_URL,
-    activeTripIdRef,
     activeAccessIdRef,
     onTripState: handleTripStateMessage,
     onTripDeleted: handleTripDeletedMessage,
+    onReconnectJoinSuccess: handleReconnectJoinSuccess,
     onReconnectJoinError: handleReconnectJoinError,
     onSocketError: handleSocketError,
   });
@@ -247,12 +311,40 @@ const TripApp = () => {
     void deleteTrip();
   }, [deleteTrip]);
 
+  const dismissInstallBanner = useCallback(() => {
+    setInstallBannerDismissed(true);
+  }, []);
+
+  const promptInstall = useCallback(async () => {
+    if (!installPromptEvent) {
+      return;
+    }
+
+    await installPromptEvent.prompt();
+    const choice = await installPromptEvent.userChoice;
+    setInstallPromptEvent(null);
+
+    if (choice.outcome === "accepted") {
+      setInstallBannerDismissed(true);
+      showToast("Install prompt accepted.", "success");
+      return;
+    }
+
+    setInstallBannerDismissed(true);
+    showToast("Install prompt dismissed.", "info");
+  }, [installPromptEvent, showToast]);
+
   const updatedAt = useMemo(
     () => new Date(sharedState.updatedAt).toLocaleString(),
     [sharedState.updatedAt],
   );
 
   const hasTrip = activeTripId.length > 0;
+  const showIosInstallBanner = !isStandalone && isIosSafari();
+  const shouldShowInstallBanner =
+    !isStandalone &&
+    !installBannerDismissed &&
+    (installPromptEvent !== null || showIosInstallBanner);
 
   return (
     <main className="app-shell">
@@ -284,6 +376,32 @@ const TripApp = () => {
       >
         {"\u2630"}
       </button>
+
+      {shouldShowInstallBanner ? (
+        <section className="install-prompt" aria-label="Install app banner">
+          <p className="eyebrow">Install the app</p>
+          <h2>Keep Geo Todo on your home screen</h2>
+          {installPromptEvent ? (
+            <p>
+              Install the app for full-screen access, faster launch, and a more native phone experience.
+            </p>
+          ) : (
+            <p>
+              On iPhone, tap Share and then choose Add to Home Screen to install this app.
+            </p>
+          )}
+          <div className="install-prompt-actions">
+            {installPromptEvent ? (
+              <button type="button" className="button primary" onClick={() => void promptInstall()}>
+                Install app
+              </button>
+            ) : null}
+            <button type="button" className="button subtle" onClick={dismissInstallBanner}>
+              Not now
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <aside
         id="todo-side-menu"

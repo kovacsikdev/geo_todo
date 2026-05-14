@@ -1,5 +1,13 @@
-const CACHE_NAME = 'geo-todo-runtime-v1'
-const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icon-192.svg', '/icon-512.svg']
+const CACHE_NAME = 'geo-todo-runtime-v2'
+const APP_SHELL = [
+  '/',
+  '/app',
+  '/manifest.webmanifest',
+  '/favicon.svg',
+  '/apple-touch-icon.png',
+  '/icon-192.png',
+  '/icon-512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,7 +37,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(async () => {
-        const cached = await caches.match('/')
+        const cached = await caches.match('/app')
         return cached ?? Response.error()
       }),
     )
