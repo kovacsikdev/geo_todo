@@ -355,6 +355,10 @@ const TripApp = () => {
     setIsMenuOpen(false);
   }, []);
 
+  const handleMapSearchFocus = useCallback(() => {
+    setIsMenuOpen(false);
+  }, []);
+
   const onDeleteTrip = useCallback(() => {
     void deleteTrip();
   }, [deleteTrip]);
@@ -413,6 +417,7 @@ const TripApp = () => {
           onLocationPinClick={handleMapLocationPinClick}
           onCancelDirections={handleCancelDirections}
           onMapError={handleMapError}
+          onSearchFocus={handleMapSearchFocus}
         />
       </Suspense>
 

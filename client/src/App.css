@@ -15,6 +15,10 @@
   gap: 0.6rem;
 }
 
+a {
+  text-decoration: none;
+}
+
 input {
   width: 100%;
   border-radius: 0.6rem;

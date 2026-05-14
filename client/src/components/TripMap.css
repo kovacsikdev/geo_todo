@@ -2,6 +2,9 @@
   position: fixed;
   inset: 0;
   z-index: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
 }
 
 .map-canvas {
@@ -11,7 +14,7 @@
 
 .map-search-control {
   position: absolute;
-  top: 1rem;
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
   left: 50%;
   z-index: 10;
   width: min(32rem, calc(100% - 8.5rem));
@@ -108,7 +111,7 @@
 
 .map-warning {
   position: absolute;
-  top: 1rem;
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
   left: 5rem;
   z-index: 8;
   max-width: min(420px, calc(100% - 6rem));
@@ -120,7 +123,7 @@
 
 .map-focus-user-button {
   position: absolute;
-  top: 1rem;
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
   right: 1rem;
   z-index: 9;
   border: 1px solid var(--stroke-soft);
@@ -145,7 +148,7 @@
 
 .map-directions-panel {
   position: absolute;
-  top: 4.75rem;
+  top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
   right: 1rem;
   z-index: 9;
   width: min(22rem, calc(100% - 2rem));
@@ -237,6 +240,24 @@
   border: 2px solid #ffffff;
   box-shadow: 0 0 0 7px rgba(0, 119, 255, 0.18);
   animation: user-location-pulse 1.8s ease-out infinite;
+}
+
+.map-search-selection-marker {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px 999px 999px 0;
+  background: #d62828;
+  border: 2px solid #ffffff;
+  box-shadow: 0 8px 20px rgba(214, 40, 40, 0.28);
+  transform: rotate(-45deg);
+}
+
+.map-search-selection-marker::after {
+  content: '';
+  position: absolute;
+  inset: 0.22rem;
+  border-radius: 999px;
+  background: #ffffff;
 }
 
 @keyframes user-location-pulse {

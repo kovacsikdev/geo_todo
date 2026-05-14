@@ -18,11 +18,11 @@ const LandingPage = () => {
             Map Itinerary
           </h1>
           <p>
-            Map Itinerary lets you create a dynamic travel plan by adding
-            locations directly on the map and managing tasks tied to each place.
+            Map Itinerary allows you to create dynamic travel plans by adding
+            locations directly on the map and managing tasks tied to each location.
             Whether you're planning a solo adventure or coordinating with
             friends, our app provides a seamless way to organize your trip and
-            collaborate in real time.
+            collaborate with fellow travelers in real time.
           </p>
           <button
             className="cta-button"
@@ -79,31 +79,34 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section className="landing-features" aria-label="Core features">
-        <article className="landing-card">
+      <section className="landing-details" aria-label="Core features">
+        <h2 className="color-primary">Features</h2>
+        <div className="details">
+          <article className="details-card">
           <h2>No profile required!</h2>
           <p>
             Creating a trip generates unique Owner and Guest IDs, allowing you
             to manage access without the need for accounts or logins.
           </p>
         </article>
-        <article className="landing-card">
+        <article className="details-card">
           <h2>Owner and guest access</h2>
           <p>
             Protect edit access with Owner ID while sharing progress with Guest
             ID.
           </p>
         </article>
-        <article className="landing-card">
+        <article className="details-card">
           <h2>Live collaboration</h2>
           <p>
             Guests receive updates in real time whenever owners modify trip
             data.
           </p>
         </article>
+        </div>
       </section>
 
-      <section className="landing-how-it-works" aria-label="How it works">
+      <section className="landing-details" aria-label="How it works">
         <h2 className="color-primary">How It Works</h2>
         <p>
           Create or join a trip using your unique Owner or Guest ID. Select any

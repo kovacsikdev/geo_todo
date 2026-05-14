@@ -85,34 +85,26 @@
   font-size: 3rem;
 }
 
-#LandingPage .landing-features {
+#LandingPage .landing-details {
+  display: block;
+}
+
+#LandingPage .landing-details .details {
   display: flex;
   justify-content: space-between;
 }
 
-#LandingPage .landing-features .landing-card {
+#LandingPage .landing-details .details .details-card {
   border: 1px solid var(--color-secondary);
   border-radius: 0.5rem;
   padding: 2rem;
-  margin: 0 1.5rem;
-  width: 33%;
+  /* margin: 0 1.5rem; */
+  width: 30%;
 }
 
-#LandingPage .landing-how-it-works {
-  display: block;
-}
-
-#LandingPage .landing-how-it-works .details {
-  display: flex;
-  justify-content: space-around;
-}
-
-#LandingPage .landing-how-it-works .details .details-card {
-  padding: 2rem;
-}
-
-#LandingPage .landing-how-it-works .details .details-card ul {
+#LandingPage .landing-details .details .details-card ul {
   padding: 0;
+  /* list-style: none; */
 }
 
 @media (max-width: 800px) {

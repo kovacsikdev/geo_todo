@@ -4,10 +4,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { LocationTodo, TripRole } from '../types'
 import { createLocationMarkerElement, markerLabelText } from '../lib/tripMapMarkers'
-import {
-  openCreateLocationPopup,
-  openCreateLocationPopupAtCoordinates,
-} from '../lib/tripMapPopup'
+import { openCreateLocationPopup } from '../lib/tripMapPopup'
 import { buildFocusBounds } from '../lib/mapViewport'
 import './TripMap.css'
 
@@ -44,6 +41,7 @@ type TripMapProps = {
   onLocationPinClick: (locationId: string) => void
   onCancelDirections: () => void
   onMapError: (message: string) => void
+  onSearchFocus: () => void
 }
 
 type DirectionsApiResponse = {
@@ -88,10 +86,11 @@ type SearchResult = {
 }
 
 const SEARCH_RESULT_LIMIT = 10
-const SEARCH_RESULT_TYPES = 'poi,address,street'
+const SEARCH_RESULT_TYPES = 'poi,address,street,place,locality,neighborhood,postcode,region,country'
 const SEARCH_DEBOUNCE_MS = 250
 const DIRECTIONS_SOURCE_ID = 'trip-directions-source'
 const DIRECTIONS_LAYER_ID = 'trip-directions-layer'
+const SEARCH_SELECTION_MARKER_CLASS = 'map-search-selection-marker'
 const ROUTE_FETCH_INTERVAL_MS = 10_000
 const ROUTE_FETCH_MOVE_THRESHOLD_METERS = 60
 const USER_HEADING_MOVE_THRESHOLD_METERS = 8
@@ -240,12 +239,14 @@ export const TripMap = ({
   onLocationPinClick,
   onCancelDirections,
   onMapError,
+  onSearchFocus,
 }: TripMapProps) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const locationMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
   const markerSnapshotRef = useRef<Map<string, string>>(new Map())
   const creationPopupRef = useRef<mapboxgl.Popup | null>(null)
+  const searchSelectionMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const userLocationMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const userLocationWatchIdRef = useRef<number | null>(null)
   const currentUserCoordinatesRef = useRef<[number, number] | null>(null)
@@ -256,9 +257,6 @@ export const TripMap = ({
   const hasAutoFocusedUserLocationRef = useRef(false)
   const isUserInteractingRef = useRef(false)
   const autoCameraResumeTimeoutRef = useRef<number | null>(null)
-  const latestCreatePopupHandlerRef = useRef<
-    (longitude: number, latitude: number, suggestedName?: string) => void
-  >(() => undefined)
   const directionsAbortControllerRef = useRef<AbortController | null>(null)
   const searchAbortControllerRef = useRef<AbortController | null>(null)
   const hasDirectionsCameraOverrideRef = useRef(false)
@@ -373,43 +371,32 @@ export const TripMap = ({
     [isMapLoaded],
   )
 
-  const openCreateLocationPopupFromCoordinates = useCallback(
-    (longitude: number, latitude: number, suggestedName?: string) => {
+  const clearSearchSelectionMarker = useCallback(() => {
+    searchSelectionMarkerRef.current?.remove()
+    searchSelectionMarkerRef.current = null
+  }, [])
+
+  const showSearchSelectionMarker = useCallback(
+    (longitude: number, latitude: number) => {
       const map = mapRef.current
       if (!map) {
         return
       }
 
-      if (!hasTrip) {
-        onMapError('Create or join a trip before adding map locations.')
-        return
-      }
+      clearSearchSelectionMarker()
 
-      if (tripRole !== 'owner') {
-        onMapError('Guests have read-only access.')
-        return
-      }
+      const markerElement = document.createElement('div')
+      markerElement.className = SEARCH_SELECTION_MARKER_CLASS
 
-      if (!isSocketConnected) {
-        onMapError('Not connected to collaboration server.')
-        return
-      }
-
-      creationPopupRef.current?.remove()
-      creationPopupRef.current = openCreateLocationPopupAtCoordinates({
-        map,
-        longitude,
-        latitude,
-        suggestedLocationName: suggestedName,
-        onCreateLocation,
+      searchSelectionMarkerRef.current = new mapboxgl.Marker({
+        element: markerElement,
+        anchor: 'bottom',
       })
+        .setLngLat([longitude, latitude])
+        .addTo(map)
     },
-    [hasTrip, isSocketConnected, onCreateLocation, onMapError, tripRole],
+    [clearSearchSelectionMarker],
   )
-
-  useEffect(() => {
-    latestCreatePopupHandlerRef.current = openCreateLocationPopupFromCoordinates
-  }, [openCreateLocationPopupFromCoordinates])
 
   const runViewportSearch = useCallback(
     async (query: string) => {
@@ -429,11 +416,9 @@ export const TripMap = ({
       const controller = new AbortController()
       searchAbortControllerRef.current = controller
 
-      const [minLng, minLat, maxLng, maxLat] = resolveViewportBounds(map)
-      const bbox = `${minLng},${minLat},${maxLng},${maxLat}`
       const categoryId = resolveCategorySearchId(trimmedQuery)
 
-      const buildRequestUrl = (useCategoryEndpoint: boolean): URL => {
+      const buildRequestUrl = (useCategoryEndpoint: boolean, useViewportBounds: boolean): URL => {
         const url = new URL(
           useCategoryEndpoint && categoryId
             ? `https://api.mapbox.com/search/searchbox/v1/category/${encodeURIComponent(categoryId)}`
@@ -447,14 +432,23 @@ export const TripMap = ({
         }
 
         url.searchParams.set('limit', String(SEARCH_RESULT_LIMIT))
-        url.searchParams.set('bbox', bbox)
+        if (useViewportBounds) {
+          const [minLng, minLat, maxLng, maxLat] = resolveViewportBounds(map)
+          url.searchParams.set('bbox', `${minLng},${minLat},${maxLng},${maxLat}`)
+        }
+
         url.searchParams.set('language', 'en')
         url.searchParams.set('access_token', accessToken)
         return url
       }
 
-      const requestSearch = async (useCategoryEndpoint: boolean): Promise<SearchResult[]> => {
-        const response = await fetch(buildRequestUrl(useCategoryEndpoint), { signal: controller.signal })
+      const requestSearch = async (
+        useCategoryEndpoint: boolean,
+        useViewportBounds: boolean,
+      ): Promise<SearchResult[]> => {
+        const response = await fetch(buildRequestUrl(useCategoryEndpoint, useViewportBounds), {
+          signal: controller.signal,
+        })
 
         if (!response.ok) {
           throw new Error('Unable to load search results for this map view.')
@@ -470,13 +464,21 @@ export const TripMap = ({
       setSearchError(null)
 
       try {
-        let nextResults = await requestSearch(Boolean(categoryId))
+        let nextResults = await requestSearch(Boolean(categoryId), true)
         if (categoryId && nextResults.length === 0) {
-          nextResults = await requestSearch(false)
+          nextResults = await requestSearch(false, true)
+        }
+
+        if (nextResults.length === 0) {
+          nextResults = await requestSearch(Boolean(categoryId), false)
+        }
+
+        if (categoryId && nextResults.length === 0) {
+          nextResults = await requestSearch(false, false)
         }
 
         setSearchResults(nextResults)
-        setSearchError(nextResults.length === 0 ? 'No results found in the current map view.' : null)
+        setSearchError(nextResults.length === 0 ? 'No results found for this search.' : null)
       } catch (error) {
         if (controller.signal.aborted) {
           return
@@ -555,6 +557,7 @@ export const TripMap = ({
 
       userLocationMarkerRef.current?.remove()
       userLocationMarkerRef.current = null
+      clearSearchSelectionMarker()
 
       creationPopupRef.current?.remove()
       creationPopupRef.current = null
@@ -566,7 +569,7 @@ export const TripMap = ({
       map.remove()
       mapRef.current = null
     }
-  }, [accessToken])
+  }, [accessToken, clearSearchSelectionMarker])
 
   useEffect(() => {
     const map = mapRef.current
@@ -735,6 +738,12 @@ export const TripMap = ({
   }, [isMapLoaded, runViewportSearch, searchQuery])
 
   useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      clearSearchSelectionMarker()
+    }
+  }, [clearSearchSelectionMarker, searchQuery])
+
+  useEffect(() => {
     const map = mapRef.current
     if (!map || !isMapLoaded) {
       return
@@ -778,6 +787,8 @@ export const TripMap = ({
     }
 
     const onClick = (event: mapboxgl.MapMouseEvent) => {
+      clearSearchSelectionMarker()
+
       if (!hasTrip) {
         onMapError('Create or join a trip before adding map locations.')
         return
@@ -806,7 +817,7 @@ export const TripMap = ({
     return () => {
       map.off('click', onClick)
     }
-  }, [hasTrip, isSocketConnected, onCreateLocation, onMapError, tripRole])
+  }, [clearSearchSelectionMarker, hasTrip, isSocketConnected, onCreateLocation, onMapError, tripRole])
 
   useEffect(() => {
     const map = mapRef.current
@@ -854,6 +865,7 @@ export const TripMap = ({
       const openLocationInMenu = (event: Event) => {
         event.preventDefault()
         event.stopPropagation()
+        clearSearchSelectionMarker()
         onLocationPinClick(location.id)
       }
 
@@ -878,7 +890,7 @@ export const TripMap = ({
       markerMap.delete(markerId)
       markerSnapshots.delete(markerId)
     })
-  }, [locations, onLocationPinClick])
+  }, [clearSearchSelectionMarker, locations, onLocationPinClick])
 
   useEffect(() => {
     if (!directionsTarget || !userCoordinates) {
@@ -1053,16 +1065,17 @@ export const TripMap = ({
       setSearchQuery('')
       setSearchResults([])
       setSearchError(null)
+      creationPopupRef.current?.remove()
+      creationPopupRef.current = null
+      showSearchSelectionMarker(result.longitude, result.latitude)
 
       map.flyTo({
         center: [result.longitude, result.latitude],
         zoom: 16,
         essential: true,
       })
-
-      latestCreatePopupHandlerRef.current(result.longitude, result.latitude, result.name)
     },
-    [],
+    [showSearchSelectionMarker],
   )
 
   return (
@@ -1077,6 +1090,7 @@ export const TripMap = ({
           className="map-search-input"
           type="search"
           value={searchQuery}
+          onFocus={onSearchFocus}
           onChange={(event) => setSearchQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
