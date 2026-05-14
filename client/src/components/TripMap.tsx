@@ -95,6 +95,8 @@ const DIRECTIONS_LAYER_ID = 'trip-directions-layer'
 const ROUTE_FETCH_INTERVAL_MS = 10_000
 const ROUTE_FETCH_MOVE_THRESHOLD_METERS = 60
 const USER_HEADING_MOVE_THRESHOLD_METERS = 8
+const USER_LOCATION_STATE_THRESHOLD_METERS = 5
+const AUTO_CAMERA_RESUME_DELAY_MS = 2_500
 const METERS_PER_MILE = 1609.344
 const DRIVING_CAMERA_ZOOM = 16.8
 const DRIVING_CAMERA_PITCH = 64
@@ -248,14 +250,18 @@ export const TripMap = ({
   const userLocationWatchIdRef = useRef<number | null>(null)
   const currentUserCoordinatesRef = useRef<[number, number] | null>(null)
   const previousUserCoordinatesRef = useRef<[number, number] | null>(null)
+  const lastUserCoordinatesStateRef = useRef<[number, number] | null>(null)
   const currentUserHeadingRef = useRef<number | null>(null)
   const hasRequestedUserLocationRef = useRef(false)
   const hasAutoFocusedUserLocationRef = useRef(false)
+  const isUserInteractingRef = useRef(false)
+  const autoCameraResumeTimeoutRef = useRef<number | null>(null)
   const latestCreatePopupHandlerRef = useRef<
     (longitude: number, latitude: number, suggestedName?: string) => void
   >(() => undefined)
   const directionsAbortControllerRef = useRef<AbortController | null>(null)
   const searchAbortControllerRef = useRef<AbortController | null>(null)
+  const hasDirectionsCameraOverrideRef = useRef(false)
   const directionsLastFetchRef = useRef<{
     targetId: string
     origin: [number, number]
@@ -345,12 +351,13 @@ export const TripMap = ({
   const followDrivingCamera = useCallback(
     (origin: [number, number], destination: [number, number]) => {
       const map = mapRef.current
-      if (!map || !isMapLoaded) {
+      if (!map || !isMapLoaded || isUserInteractingRef.current) {
         return
       }
 
       const fallbackBearing = calculateBearingDegrees(origin, destination)
       const bearing = currentUserHeadingRef.current ?? fallbackBearing
+      hasDirectionsCameraOverrideRef.current = true
 
       map.easeTo({
         center: origin,
@@ -524,6 +531,13 @@ export const TripMap = ({
       currentUserCoordinatesRef.current = null
       previousUserCoordinatesRef.current = null
       currentUserHeadingRef.current = null
+      lastUserCoordinatesStateRef.current = null
+      isUserInteractingRef.current = false
+      if (autoCameraResumeTimeoutRef.current !== null) {
+        window.clearTimeout(autoCameraResumeTimeoutRef.current)
+        autoCameraResumeTimeoutRef.current = null
+      }
+      hasDirectionsCameraOverrideRef.current = false
       activeDirectionsKeyRef.current = null
       directionsLastFetchRef.current = null
       directionsAbortControllerRef.current?.abort()
@@ -587,13 +601,17 @@ export const TripMap = ({
 
       previousUserCoordinatesRef.current = nextCoordinates
       currentUserCoordinatesRef.current = nextCoordinates
-      setUserCoordinates((current) => {
-        if (current && current[0] === lng && current[1] === lat) {
-          return current
-        }
+      const lastStateCoordinates = lastUserCoordinatesStateRef.current
+      const shouldUpdateUserCoordinatesState =
+        !lastStateCoordinates ||
+        distanceBetweenCoordinatesInMeters(lastStateCoordinates, nextCoordinates) >=
+          USER_LOCATION_STATE_THRESHOLD_METERS
 
-        return nextCoordinates
-      })
+      if (shouldUpdateUserCoordinatesState) {
+        lastUserCoordinatesStateRef.current = nextCoordinates
+        setUserCoordinates(nextCoordinates)
+      }
+
       setHasUserLocation((current) => (current ? current : true))
 
       if (!userLocationMarkerRef.current) {
@@ -651,6 +669,56 @@ export const TripMap = ({
       }
     }
   }, [focusMapOnCoordinates, isMapLoaded])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !isMapLoaded) {
+      return
+    }
+
+    const markUserInteraction = () => {
+      isUserInteractingRef.current = true
+
+      if (autoCameraResumeTimeoutRef.current !== null) {
+        window.clearTimeout(autoCameraResumeTimeoutRef.current)
+      }
+
+      autoCameraResumeTimeoutRef.current = window.setTimeout(() => {
+        isUserInteractingRef.current = false
+        autoCameraResumeTimeoutRef.current = null
+      }, AUTO_CAMERA_RESUME_DELAY_MS)
+    }
+
+    const clearUserInteraction = () => {
+      if (autoCameraResumeTimeoutRef.current !== null) {
+        window.clearTimeout(autoCameraResumeTimeoutRef.current)
+        autoCameraResumeTimeoutRef.current = null
+      }
+
+      isUserInteractingRef.current = false
+    }
+
+    map.on('dragstart', markUserInteraction)
+    map.on('zoomstart', markUserInteraction)
+    map.on('rotatestart', markUserInteraction)
+    map.on('pitchstart', markUserInteraction)
+    map.on('dragend', markUserInteraction)
+    map.on('zoomend', markUserInteraction)
+    map.on('rotateend', markUserInteraction)
+    map.on('pitchend', markUserInteraction)
+
+    return () => {
+      map.off('dragstart', markUserInteraction)
+      map.off('zoomstart', markUserInteraction)
+      map.off('rotatestart', markUserInteraction)
+      map.off('pitchstart', markUserInteraction)
+      map.off('dragend', markUserInteraction)
+      map.off('zoomend', markUserInteraction)
+      map.off('rotateend', markUserInteraction)
+      map.off('pitchend', markUserInteraction)
+      clearUserInteraction()
+    }
+  }, [isMapLoaded])
 
   useEffect(() => {
     if (!isMapLoaded) {
@@ -827,19 +895,27 @@ export const TripMap = ({
     }
 
     if (!directionsTarget) {
+      const shouldResetCamera =
+        hasDirectionsCameraOverrideRef.current || activeDirectionsKeyRef.current !== null
+
       directionsAbortControllerRef.current?.abort()
       directionsAbortControllerRef.current = null
       directionsLastFetchRef.current = null
       activeDirectionsKeyRef.current = null
       clearDirectionsRoute()
       setDirectionsState({ status: 'idle' })
-      map.easeTo({
-        pitch: 0,
-        bearing: 0,
-        duration: 500,
-        essential: true,
-        retainPadding: false,
-      })
+
+      if (shouldResetCamera) {
+        hasDirectionsCameraOverrideRef.current = false
+        map.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 500,
+          essential: true,
+          retainPadding: false,
+        })
+      }
+
       return
     }
 

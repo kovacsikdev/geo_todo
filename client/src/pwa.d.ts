@@ -15,6 +15,10 @@ declare global {
   interface WindowEventMap {
     beforeinstallprompt: BeforeInstallPromptEvent
   }
+
+  interface Window {
+    __geoTodoBeforeInstallPromptEvent?: BeforeInstallPromptEvent | null
+  }
 }
 
 export {}

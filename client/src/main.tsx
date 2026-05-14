@@ -6,6 +6,18 @@ import { router } from './router';
 import { store } from './store';
 import './index.css';
 
+const captureBeforeInstallPrompt = (event: BeforeInstallPromptEvent) => {
+  event.preventDefault();
+  window.__geoTodoBeforeInstallPromptEvent = event;
+};
+
+const clearCapturedInstallPrompt = () => {
+  window.__geoTodoBeforeInstallPromptEvent = null;
+};
+
+window.addEventListener('beforeinstallprompt', captureBeforeInstallPrompt);
+window.addEventListener('appinstalled', clearCapturedInstallPrompt);
+
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('/sw.js');

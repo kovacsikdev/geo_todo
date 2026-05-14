@@ -96,7 +96,7 @@ const TripApp = () => {
   const [busy, setBusy] = useState(false);
   const [tripRole, setTripRole] = useState<TripRole>(initialSession.initialRole);
   const [installPromptEvent, setInstallPromptEvent] =
-    useState<BeforeInstallPromptEvent | null>(null);
+    useState<BeforeInstallPromptEvent | null>(() => window.__geoTodoBeforeInstallPromptEvent ?? null);
   const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const [isStandalone, setIsStandalone] = useState(() => isStandaloneMode());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -152,11 +152,13 @@ const TripApp = () => {
 
     const handleBeforeInstallPrompt = (event: BeforeInstallPromptEvent) => {
       event.preventDefault();
+      window.__geoTodoBeforeInstallPromptEvent = event;
       setInstallPromptEvent(event);
       setInstallBannerDismissed(false);
     };
 
     const handleAppInstalled = () => {
+      window.__geoTodoBeforeInstallPromptEvent = null;
       setInstallPromptEvent(null);
       setInstallBannerDismissed(true);
       syncStandaloneState();
@@ -164,6 +166,7 @@ const TripApp = () => {
     };
 
     syncStandaloneState();
+    setInstallPromptEvent(window.__geoTodoBeforeInstallPromptEvent ?? null);
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
 
@@ -367,6 +370,7 @@ const TripApp = () => {
 
     await installPromptEvent.prompt();
     const choice = await installPromptEvent.userChoice;
+    window.__geoTodoBeforeInstallPromptEvent = null;
     setInstallPromptEvent(null);
 
     if (choice.outcome === "accepted") {
