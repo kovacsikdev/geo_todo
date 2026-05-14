@@ -436,10 +436,9 @@ const TripApp = () => {
       {shouldShowInstallBanner ? (
         <section className="install-prompt" aria-label="Install app banner">
           <p className="eyebrow">Install the app</p>
-          <h2>Keep Geo Todo on your home screen</h2>
           {installPromptEvent ? (
             <p>
-              Install the app for full-screen access, faster launch, and a more native phone experience.
+              Install the app for easier access, faster launch, and a more seamless, integrated experience on your device.
             </p>
           ) : (
             <p>

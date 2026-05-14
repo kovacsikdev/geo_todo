@@ -25,9 +25,11 @@ export type SharedState = {
 
 export type ClientAction =
   | { type: 'create_location'; name: string; latitude: number; longitude: number }
+  | { type: 'reorder_locations'; locationIds: string[] }
   | { type: 'rename_location'; locationId: string; name: string }
   | { type: 'delete_location'; locationId: string }
   | { type: 'add_item'; locationId: string; text: string }
+  | { type: 'reorder_items'; locationId: string; itemIds: string[] }
   | { type: 'update_item'; locationId: string; itemId: string; text: string }
   | { type: 'toggle_item'; locationId: string; itemId: string; done: boolean }
   | { type: 'delete_item'; locationId: string; itemId: string }

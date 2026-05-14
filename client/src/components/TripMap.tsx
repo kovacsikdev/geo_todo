@@ -159,6 +159,34 @@ const distanceBetweenCoordinatesInMeters = (
   return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+const resolveRouteForwardBearing = (
+  origin: [number, number],
+  coordinates: [number, number][],
+  fallbackDestination: [number, number],
+): number => {
+  if (coordinates.length < 2) {
+    return calculateBearingDegrees(origin, fallbackDestination)
+  }
+
+  let nearestIndex = 0
+  let nearestDistance = Number.POSITIVE_INFINITY
+
+  coordinates.forEach((coordinate, index) => {
+    const distance = distanceBetweenCoordinatesInMeters(origin, coordinate)
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestIndex = index
+    }
+  })
+
+  const nextCoordinate = coordinates[Math.min(nearestIndex + 1, coordinates.length - 1)]
+  if (!nextCoordinate || (nextCoordinate[0] === origin[0] && nextCoordinate[1] === origin[1])) {
+    return calculateBearingDegrees(origin, fallbackDestination)
+  }
+
+  return calculateBearingDegrees(origin, nextCoordinate)
+}
+
 const calculateBearingDegrees = (from: [number, number], to: [number, number]): number => {
   const toRadians = (value: number) => (value * Math.PI) / 180
   const toDegrees = (value: number) => (value * 180) / Math.PI
@@ -253,6 +281,7 @@ export const TripMap = ({
   const previousUserCoordinatesRef = useRef<[number, number] | null>(null)
   const lastUserCoordinatesStateRef = useRef<[number, number] | null>(null)
   const currentUserHeadingRef = useRef<number | null>(null)
+  const routeCoordinatesRef = useRef<[number, number][]>([])
   const hasRequestedUserLocationRef = useRef(false)
   const hasAutoFocusedUserLocationRef = useRef(false)
   const isUserInteractingRef = useRef(false)
@@ -260,6 +289,7 @@ export const TripMap = ({
   const directionsAbortControllerRef = useRef<AbortController | null>(null)
   const searchAbortControllerRef = useRef<AbortController | null>(null)
   const hasDirectionsCameraOverrideRef = useRef(false)
+  const routeOverviewKeyRef = useRef<string | null>(null)
   const directionsLastFetchRef = useRef<{
     targetId: string
     origin: [number, number]
@@ -270,6 +300,7 @@ export const TripMap = ({
   const [hasUserLocation, setHasUserLocation] = useState(false)
   const [userCoordinates, setUserCoordinates] = useState<[number, number] | null>(null)
   const [directionsState, setDirectionsState] = useState<DirectionsState>({ status: 'idle' })
+  const [hasBegunDirections, setHasBegunDirections] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearchLoading, setIsSearchLoading] = useState(false)
@@ -290,7 +321,10 @@ export const TripMap = ({
     }
   }, [])
 
-  const drawDirectionsRoute = useCallback((coordinates: [number, number][]) => {
+  const drawDirectionsRoute = useCallback((
+    coordinates: [number, number][],
+    travelMode: 'driving' | 'walking',
+  ) => {
     const map = mapRef.current
     if (!map) {
       return
@@ -300,6 +334,15 @@ export const TripMap = ({
     const source = map.getSource(DIRECTIONS_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
     if (source) {
       source.setData(routeFeature)
+
+      if (map.getLayer(DIRECTIONS_LAYER_ID)) {
+        map.setPaintProperty(
+          DIRECTIONS_LAYER_ID,
+          'line-dasharray',
+          travelMode === 'walking' ? [1.2, 1.6] : [1, 0],
+        )
+      }
+
       return
     }
 
@@ -318,6 +361,7 @@ export const TripMap = ({
       },
       paint: {
         'line-color': '#0f5f75',
+        'line-dasharray': travelMode === 'walking' ? [1.2, 1.6] : [1, 0],
         'line-width': 5,
         'line-opacity': 0.92,
       },
@@ -346,15 +390,15 @@ export const TripMap = ({
     )
   }, [])
 
-  const followDrivingCamera = useCallback(
+  const followDirectionsCamera = useCallback(
     (origin: [number, number], destination: [number, number]) => {
       const map = mapRef.current
       if (!map || !isMapLoaded || isUserInteractingRef.current) {
         return
       }
 
-      const fallbackBearing = calculateBearingDegrees(origin, destination)
-      const bearing = currentUserHeadingRef.current ?? fallbackBearing
+      const routeBearing = resolveRouteForwardBearing(origin, routeCoordinatesRef.current, destination)
+      const bearing = routeBearing ?? currentUserHeadingRef.current ?? calculateBearingDegrees(origin, destination)
       hasDirectionsCameraOverrideRef.current = true
 
       map.easeTo({
@@ -569,7 +613,23 @@ export const TripMap = ({
       map.remove()
       mapRef.current = null
     }
+      routeCoordinatesRef.current = []
+      routeOverviewKeyRef.current = null
+      setHasBegunDirections(false)
+
   }, [accessToken, clearSearchSelectionMarker])
+
+  useEffect(() => {
+    if (!directionsTarget) {
+      setHasBegunDirections(false)
+      routeCoordinatesRef.current = []
+      routeOverviewKeyRef.current = null
+      return
+    }
+
+    setHasBegunDirections(false)
+    routeOverviewKeyRef.current = null
+  }, [directionsTarget?.locationId, directionsTarget?.travelMode])
 
   useEffect(() => {
     const map = mapRef.current
@@ -893,12 +953,12 @@ export const TripMap = ({
   }, [clearSearchSelectionMarker, locations, onLocationPinClick])
 
   useEffect(() => {
-    if (!directionsTarget || !userCoordinates) {
+    if (!directionsTarget || !userCoordinates || !hasBegunDirections) {
       return
     }
 
-    followDrivingCamera(userCoordinates, [directionsTarget.longitude, directionsTarget.latitude])
-  }, [directionsTarget, followDrivingCamera, userCoordinates])
+    followDirectionsCamera(userCoordinates, [directionsTarget.longitude, directionsTarget.latitude])
+  }, [directionsTarget, followDirectionsCamera, hasBegunDirections, userCoordinates])
 
   useEffect(() => {
     const map = mapRef.current
@@ -914,6 +974,8 @@ export const TripMap = ({
       directionsAbortControllerRef.current = null
       directionsLastFetchRef.current = null
       activeDirectionsKeyRef.current = null
+      routeCoordinatesRef.current = []
+      routeOverviewKeyRef.current = null
       clearDirectionsRoute()
       setDirectionsState({ status: 'idle' })
 
@@ -994,7 +1056,8 @@ export const TripMap = ({
           throw new Error(data.message ?? 'No drivable route found for this destination.')
         }
 
-        drawDirectionsRoute(coordinates)
+        routeCoordinatesRef.current = coordinates
+        drawDirectionsRoute(coordinates, directionsTarget.travelMode)
         setDirectionsState({
           status: 'ready',
           destinationName: directionsTarget.name,
@@ -1002,16 +1065,17 @@ export const TripMap = ({
           etaMinutes: route.duration / 60,
         })
 
-        if (directionsTarget.travelMode === 'driving') {
-          followDrivingCamera(userCoordinates, destination)
+        if (hasBegunDirections) {
+          followDirectionsCamera(userCoordinates, destination)
           return
         }
 
         const directionsKey = `${directionsTarget.locationId}:${directionsTarget.travelMode}`
-        if (activeDirectionsKeyRef.current === directionsKey) {
+        if (routeOverviewKeyRef.current === directionsKey) {
           return
         }
 
+        routeOverviewKeyRef.current = directionsKey
         activeDirectionsKeyRef.current = directionsKey
         const bounds = coordinates.reduce(
           (accumulator, coordinate) => accumulator.extend(coordinate),
@@ -1034,6 +1098,7 @@ export const TripMap = ({
           return
         }
 
+        routeCoordinatesRef.current = []
         clearDirectionsRoute()
         setDirectionsState({
           status: 'error',
@@ -1050,10 +1115,20 @@ export const TripMap = ({
     clearDirectionsRoute,
     directionsTarget,
     drawDirectionsRoute,
-    followDrivingCamera,
+    followDirectionsCamera,
+    hasBegunDirections,
     isMapLoaded,
     userCoordinates,
   ])
+
+  const beginDirections = useCallback(() => {
+    if (!directionsTarget || !userCoordinates) {
+      return
+    }
+
+    setHasBegunDirections(true)
+    followDirectionsCamera(userCoordinates, [directionsTarget.longitude, directionsTarget.latitude])
+  }, [directionsTarget, followDirectionsCamera, userCoordinates])
 
   const handleSelectSearchResult = useCallback(
     (result: SearchResult) => {
@@ -1190,6 +1265,11 @@ export const TripMap = ({
           ) : null}
 
           <div className="map-directions-actions">
+            {directionsState.status === 'ready' && !hasBegunDirections ? (
+              <button type="button" className="button primary" onClick={beginDirections}>
+                {`Begin ${directionsTarget.travelMode}`}
+              </button>
+            ) : null}
             <button type="button" className="button subtle" onClick={onCancelDirections}>
               Cancel
             </button>

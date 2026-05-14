@@ -27,18 +27,47 @@ const locateItem = (state: SharedState, locationId: string, itemId: string) => {
   return { location, item }
 }
 
+const reorderByIds = <T extends { id: string }>(entries: T[], orderedIds: string[]): T[] => {
+  if (entries.length <= 1) {
+    return entries
+  }
+
+  const entryMap = new Map(entries.map((entry) => [entry.id, entry]))
+  const reordered: T[] = []
+
+  orderedIds.forEach((id) => {
+    const entry = entryMap.get(id)
+    if (!entry) {
+      return
+    }
+
+    reordered.push(entry)
+    entryMap.delete(id)
+  })
+
+  entryMap.forEach((entry) => {
+    reordered.push(entry)
+  })
+
+  return reordered
+}
+
 export const applyTripAction = (state: SharedState, action: ClientAction): SharedState => {
   const nextState = structuredClone(state)
 
   switch (action.type) {
     case 'create_location': {
-      nextState.locations.unshift({
+      nextState.locations.push({
         id: createId(),
         name: action.name,
         latitude: action.latitude,
         longitude: action.longitude,
         items: [],
       })
+      break
+    }
+    case 'reorder_locations': {
+      nextState.locations = reorderByIds(nextState.locations, action.locationIds)
       break
     }
     case 'rename_location': {
@@ -57,6 +86,11 @@ export const applyTripAction = (state: SharedState, action: ClientAction): Share
         text: action.text,
         done: false,
       })
+      break
+    }
+    case 'reorder_items': {
+      const location = locateLocation(nextState, action.locationId)
+      location.items = reorderByIds(location.items, action.itemIds)
       break
     }
     case 'update_item': {

@@ -31,7 +31,7 @@ const TripGateComponent = ({
 
       <form className="trip-gate-form" onSubmit={onCreateTrip}>
         <label className="field-label" htmlFor="new-trip-name">
-          Create
+          Create trip
         </label>
         <div className="row trip-gate-row">
           <input
@@ -49,14 +49,14 @@ const TripGateComponent = ({
 
       <form className="trip-gate-form" onSubmit={onJoinTrip}>
         <label className="field-label" htmlFor="join-access-id">
-          Join with Owner or Guest ID:
+          Join trip with Owner or Guest ID:
         </label>
         <div className="row trip-gate-row">
           <input
             id="join-access-id"
             value={accessIdDraft}
             onChange={(event) => onAccessIdDraftChange(event.target.value)}
-            placeholder="Paste owner ID or guest ID"
+            placeholder="Enter ID (xxxx-xxxx)"
           />
           <button type="submit" className="button subtle trip-gate-button" disabled={disabled || accessIdDraft.trim().length === 0}>
             Join

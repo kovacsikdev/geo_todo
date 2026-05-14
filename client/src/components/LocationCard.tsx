@@ -1,5 +1,8 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { ClientAction, LocationTodo } from "../types";
 import "./LocationCard.css";
 
@@ -16,6 +19,101 @@ type EditorState =
   | { kind: "item"; itemId: string }
   | null;
 
+type SortableTaskRowProps = {
+  locationId: string;
+  item: LocationTodo["items"][number];
+  canEdit: boolean;
+  onAction: (action: ClientAction) => void;
+  onOpenEditor: (itemId: string) => void;
+};
+
+const SortableTaskRow = ({
+  locationId,
+  item,
+  canEdit,
+  onAction,
+  onOpenEditor,
+}: SortableTaskRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.id,
+    disabled: !canEdit,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`todo-item-row ${isDragging ? "is-dragging" : ""}`}
+    >
+      {canEdit ? (
+        <button
+          type="button"
+          className="drag-handle"
+          aria-label={`Drag task ${item.text}`}
+          {...attributes}
+          {...listeners}
+        >
+          ⋮⋮
+        </button>
+      ) : null}
+      <label className="todo-item-toggle">
+        <input
+          type="checkbox"
+          checked={item.done}
+          disabled={!canEdit}
+          onChange={(event) =>
+            onAction({
+              type: "toggle_item",
+              locationId,
+              itemId: item.id,
+              done: event.target.checked,
+            })
+          }
+        />
+        <span className={`todo-item-text ${item.done ? "is-done" : ""}`}>
+          {item.text}
+        </span>
+      </label>
+      {canEdit ? (
+        <button
+          type="button"
+          className="button subtle location-action-button"
+          onClick={() => onOpenEditor(item.id)}
+        >
+          Edit
+        </button>
+      ) : null}
+      {canEdit ? (
+        <button
+          type="button"
+          className="button danger location-action-button"
+          onClick={() =>
+            onAction({
+              type: "delete_item",
+              locationId,
+              itemId: item.id,
+            })
+          }
+        >
+          Delete
+        </button>
+      ) : null}
+    </li>
+  );
+};
+
 const LocationCardComponent = ({
   location,
   onAction,
@@ -23,6 +121,18 @@ const LocationCardComponent = ({
   onFocusLocation,
   onStartDirections,
 }: LocationCardProps) => {
+  const itemContextId = useId();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: location.id,
+    disabled: !canEdit,
+  });
   const [editorState, setEditorState] = useState<EditorState>(null);
   const [editorDraft, setEditorDraft] = useState("");
   const [newItemText, setNewItemText] = useState("");
@@ -121,6 +231,43 @@ const LocationCardComponent = ({
     setIsDirectionsDialogOpen(false);
   };
 
+  const taskSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+  );
+
+  const handleTaskDragEnd = (event: DragEndEvent) => {
+    if (!canEdit) {
+      return;
+    }
+
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const previousIndex = location.items.findIndex((item) => item.id === active.id);
+    const nextIndex = location.items.findIndex((item) => item.id === over.id);
+    if (previousIndex < 0 || nextIndex < 0) {
+      return;
+    }
+
+    const nextOrder = arrayMove(location.items, previousIndex, nextIndex).map((item) => item.id);
+    onAction({
+      type: "reorder_items",
+      locationId: location.id,
+      itemIds: nextOrder,
+    });
+  };
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const startDirections = (mode: "driving" | "walking") => {
     onStartDirections(location, mode);
     closeDirectionsDialog();
@@ -128,12 +275,25 @@ const LocationCardComponent = ({
 
   return (
     <section
+      ref={setNodeRef}
+      style={style}
       id={`location-card-${location.id}`}
       data-location-id={location.id}
-      className="location-card"
+      className={`location-card ${isDragging ? "is-dragging" : ""}`}
     >
       <div className="location-header">
         <div className="location-title-line">
+          {canEdit ? (
+            <button
+              type="button"
+              className="drag-handle location-drag-handle"
+              aria-label={`Drag location ${location.name}`}
+              {...attributes}
+              {...listeners}
+            >
+              ⋮⋮
+            </button>
+          ) : null}
           <button
             type="button"
             className="button subtle caret-toggle"
@@ -196,54 +356,22 @@ const LocationCardComponent = ({
 
       {!isCollapsed ? (
         <>
-          <ul className="items-list">
-            {location.items.map((item) => (
-              <li key={item.id} className="todo-item-row">
-                <label className="todo-item-toggle">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    disabled={!canEdit}
-                    onChange={(event) =>
-                      onAction({
-                        type: "toggle_item",
-                        locationId: location.id,
-                        itemId: item.id,
-                        done: event.target.checked,
-                      })
-                    }
+          <DndContext id={itemContextId} sensors={taskSensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
+            <SortableContext items={location.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+              <ul className="items-list">
+                {location.items.map((item) => (
+                  <SortableTaskRow
+                    key={item.id}
+                    locationId={location.id}
+                    item={item}
+                    canEdit={canEdit}
+                    onAction={onAction}
+                    onOpenEditor={openItemEditor}
                   />
-                  <span className={`todo-item-text ${item.done ? "is-done" : ""}`}>
-                    {item.text}
-                  </span>
-                </label>
-                {canEdit ? (
-                  <button
-                    type="button"
-                    className="button subtle location-action-button"
-                    onClick={() => openItemEditor(item.id)}
-                  >
-                    Edit
-                  </button>
-                ) : null}
-                {canEdit ? (
-                  <button
-                    type="button"
-                    className="button danger location-action-button"
-                    onClick={() =>
-                      onAction({
-                        type: "delete_item",
-                        locationId: location.id,
-                        itemId: item.id,
-                      })
-                    }
-                  >
-                    Delete
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
 
           {canEdit ? (
             isAddingItem ? (
@@ -286,7 +414,7 @@ const LocationCardComponent = ({
                 aria-label="Add task"
                 title="Add task"
               >
-                +
+                Add task
               </button>
             )
           ) : null}

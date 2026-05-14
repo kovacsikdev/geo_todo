@@ -51,8 +51,8 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 40vw;
-  max-width: 500px;
+  width: 500px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: calc(env(safe-area-inset-top, 0px) + 0.55rem) 0.55rem calc(env(safe-area-inset-bottom, 0px) + 0.55rem);
   background: #ffffff;
