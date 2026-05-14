@@ -5,7 +5,6 @@
 
 .field-label {
   display: block;
-  /* font-size: 0.85rem; */
   font-weight: 700;
   color: var(--ink-strong);
   margin-bottom: 0.45rem;
@@ -35,8 +34,7 @@ input:focus-visible {
   border: 1px solid var(--stroke-soft);
   border-radius: 0.6rem;
   font: inherit;
-  font-weight: 700;
-  padding: 0.54rem 0.72rem;
+  padding: 0.25rem 0.5rem;
   cursor: pointer;
   color: var(--ink-strong);
   background: #ffffff;
@@ -62,7 +60,6 @@ input:focus-visible {
 
 .map-create-popup p {
   margin: 0;
-  /* font-size: 0.85rem; */
   color: var(--ink-strong);
 }
 
@@ -85,6 +82,5 @@ input:focus-visible {
   border-radius: 0.4rem;
   padding: 0.34rem 0.56rem;
   font: inherit;
-  /* font-size: 0.82rem; */
   cursor: pointer;
 }

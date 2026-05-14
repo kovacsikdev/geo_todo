@@ -14,7 +14,6 @@
   color: var(--ink-strong);
   border: 1px solid var(--stroke-soft);
   padding: 0.55rem 0.7rem;
-  /* font-size: 0.88rem; */
 }
 
 .button-icon {
@@ -50,7 +49,6 @@
   top: 0;
   left: 0;
   bottom: 0;
-  /* width: min(520px, 92vw); */
   width: 40vw;
   max-width: 500px;
   overflow-y: auto;
@@ -79,7 +77,6 @@
   color: var(--ink-strong);
   font-size: 1.1rem;
   font-weight: 700;
-  line-height: 1;
   cursor: pointer;
 }
 
@@ -127,7 +124,6 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-muted);
-  /* font-size: 0.75rem; */
 }
 
 @media (max-width: 720px) {

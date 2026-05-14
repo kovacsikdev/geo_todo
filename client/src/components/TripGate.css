@@ -6,7 +6,6 @@
 
 .trip-gate-intro {
   margin: 0;
-  /* font-size: 0.86rem; */
   color: var(--ink-muted);
 }
 
@@ -16,7 +15,6 @@
   padding: 0.12rem 0.4rem;
   border: 1px solid var(--stroke-soft);
   border-radius: 0.32rem;
-  /* font-size: 0.72rem; */
   font-weight: 600;
   color: var(--ink-strong);
   background: #ffffff;
@@ -25,7 +23,7 @@
 .trip-gate-form {
   display: grid;
   gap: 0.18rem;
-  padding: 0.08rem 0 0;
+  padding: 1rem 0 0;
   background: transparent;
 }
 
@@ -36,7 +34,6 @@
 .trip-gate-form input {
   padding: 0.38rem 0.48rem;
   border-radius: 0.42rem;
-  /* font-size: 0.82rem; */
 }
 
 .trip-gate-button {
@@ -46,7 +43,6 @@
 
 .gate-note {
   margin: 0;
-  /* font-size: 0.72rem; */
   line-height: 1.25;
   color: var(--ink-muted);
 }
