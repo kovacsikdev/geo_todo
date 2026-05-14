@@ -30,6 +30,10 @@ input:focus-visible {
   outline-offset: 1px;
 }
 
+input[type="checkbox"] {
+  width: 2rem;
+}
+
 .button {
   border: 1px solid var(--stroke-soft);
   border-radius: 0.6rem;

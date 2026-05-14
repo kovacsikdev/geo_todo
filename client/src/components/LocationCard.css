@@ -61,10 +61,11 @@
 
 .location-action-button {
   min-width: 0;
+  margin-right: 0.5rem;
 }
 
 .items-list {
-  margin: 0.45rem 0 0;
+  margin: 1rem 0 0;
   padding: 0;
   list-style: none;
   display: flex;
@@ -74,9 +75,17 @@
 
 .todo-item-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.35rem;
   align-items: center;
+}
+
+.todo-item-toggle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
 }
 
 .todo-item-text {
@@ -90,7 +99,8 @@
   color: var(--ink-muted);
 }
 
-.checkbox-wrap {
+.checkbox-wrap,
+.todo-item-toggle input {
   display: grid;
   place-items: center;
 }

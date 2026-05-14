@@ -199,7 +199,7 @@ const LocationCardComponent = ({
           <ul className="items-list">
             {location.items.map((item) => (
               <li key={item.id} className="todo-item-row">
-                <label className="checkbox-wrap">
+                <label className="todo-item-toggle">
                   <input
                     type="checkbox"
                     checked={item.done}
@@ -213,10 +213,10 @@ const LocationCardComponent = ({
                       })
                     }
                   />
+                  <span className={`todo-item-text ${item.done ? "is-done" : ""}`}>
+                    {item.text}
+                  </span>
                 </label>
-                <span className={`todo-item-text ${item.done ? "is-done" : ""}`}>
-                  {item.text}
-                </span>
                 {canEdit ? (
                   <button
                     type="button"
