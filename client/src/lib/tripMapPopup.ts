@@ -1,33 +1,47 @@
-import mapboxgl from 'mapbox-gl'
-import { resolveSuggestedLocationName } from './tripMapFeatureLookup'
+import type { Map as MapboxMap, MapMouseEvent, Popup } from 'mapbox-gl'
+import {
+  fetchSuggestedLocationAddress,
+  resolveSuggestedLocationAddress,
+  resolveSuggestedLocationName,
+} from './tripMapFeatureLookup'
+
+type MapboxRuntime = typeof import('mapbox-gl')['default']
 
 type CreateLocationPayload = {
   name: string
+  address?: string
   latitude: number
   longitude: number
 }
 
 type OpenCreateLocationPopupAtCoordinatesOptions = {
-  map: mapboxgl.Map
+  accessToken: string
+  mapbox: MapboxRuntime
+  map: MapboxMap
   latitude: number
   longitude: number
   suggestedLocationName?: string
+  suggestedLocationAddress?: string
   onCreateLocation: (payload: CreateLocationPayload) => void
 }
 
 type OpenCreateLocationPopupOptions = {
-  map: mapboxgl.Map
-  event: mapboxgl.MapMouseEvent
+  mapbox: MapboxRuntime
+  map: MapboxMap
+  event: MapMouseEvent
   onCreateLocation: (payload: CreateLocationPayload) => void
 }
 
 export const openCreateLocationPopupAtCoordinates = ({
+  accessToken,
+  mapbox,
   map,
   latitude,
   longitude,
   suggestedLocationName,
+  suggestedLocationAddress,
   onCreateLocation,
-}: OpenCreateLocationPopupAtCoordinatesOptions): mapboxgl.Popup => {
+}: OpenCreateLocationPopupAtCoordinatesOptions): Popup => {
   const content = document.createElement('div')
   content.className = 'map-create-popup'
 
@@ -57,20 +71,35 @@ export const openCreateLocationPopupAtCoordinates = ({
   actions.append(confirmButton, cancelButton)
   content.append(prompt, input, actions)
 
-  const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
+  const popup = new mapbox.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
     .setLngLat([longitude, latitude])
     .setDOMContent(content)
     .addTo(map)
 
-  confirmButton.addEventListener('click', () => {
+  confirmButton.addEventListener('click', async () => {
     const trimmedName = input.value.trim()
     if (!trimmedName) {
       input.focus()
       return
     }
 
+    confirmButton.disabled = true
+    cancelButton.disabled = true
+    input.disabled = true
+    confirmButton.textContent = 'Adding...'
+
+    const resolvedAddress =
+      suggestedLocationAddress ??
+      (await fetchSuggestedLocationAddress({
+        accessToken,
+        longitude,
+        latitude,
+        name: trimmedName,
+      }))
+
     onCreateLocation({
       name: trimmedName,
+      address: resolvedAddress,
       latitude,
       longitude,
     })
@@ -98,15 +127,20 @@ export const openCreateLocationPopupAtCoordinates = ({
 }
 
 export const openCreateLocationPopup = ({
+  accessToken,
+  mapbox,
   map,
   event,
   onCreateLocation,
-}: OpenCreateLocationPopupOptions): mapboxgl.Popup => {
+}: OpenCreateLocationPopupOptions & { accessToken: string }): Popup => {
   return openCreateLocationPopupAtCoordinates({
+    accessToken,
+    mapbox,
     map,
     latitude: event.lngLat.lat,
     longitude: event.lngLat.lng,
     suggestedLocationName: resolveSuggestedLocationName(map, event),
+    suggestedLocationAddress: resolveSuggestedLocationAddress(map, event),
     onCreateLocation,
   })
 }

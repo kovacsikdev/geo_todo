@@ -2,6 +2,13 @@
   padding: 1rem 0;
   background: #ffffff;
   scroll-margin-top: 1rem;
+  border-top: 1px solid;
+  border-image: linear-gradient(
+      to right,
+      var(--color-secondary) 0%,
+      #fff 100%
+    )
+    1;
 }
 
 .location-card.is-dragging,
@@ -23,7 +30,7 @@
 .location-title-line {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .drag-handle {
@@ -52,6 +59,7 @@
   cursor: pointer;
   color: var(--ink-strong);
   line-height: 1;
+  margin-left: auto;
 }
 
 .location-title-wrapper {
@@ -66,8 +74,15 @@
   line-height: 1.2;
 }
 
-.location-subtitle {
+.location-address {
   color: var(--ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.location-subtitle {
+  font-weight: bold;
 }
 
 
@@ -79,12 +94,13 @@
 
 .location-actions-below {
   margin-top: 0.25rem;
-  justify-content: flex-start;
+  justify-content: space-around;
 }
 
-.location-action-button {
+.location-actions-below .location-action-button {
   min-width: 0;
   margin-right: 0.5rem;
+  border: none;
 }
 
 .items-list {
@@ -191,6 +207,7 @@
 .location-editor-actions {
   display: flex;
   gap: 0.25rem;
+  justify-content: space-around;
   flex-wrap: wrap;
 }
 

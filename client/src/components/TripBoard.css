@@ -18,3 +18,12 @@
   margin-top: 0.5rem;
   color: var(--ink-muted);
 }
+
+.side-menu-dialog-backdrop {
+  position: fixed;
+  z-index: 81;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(9, 36, 72, 0.18);
+}

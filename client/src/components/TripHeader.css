@@ -7,7 +7,7 @@
 .hero-header h1 {
   margin: 0;
   font-size: 1.02rem;
-  color: var(--ink-strong);
+  color: var(--color-primary);
 }
 
 .status-row {

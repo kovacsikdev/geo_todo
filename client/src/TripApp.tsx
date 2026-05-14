@@ -308,14 +308,16 @@ const TripApp = () => {
   const handleMapCreateLocation = useCallback(
     ({
       name,
+      address,
       latitude,
       longitude,
     }: {
       name: string;
+      address?: string;
       latitude: number;
       longitude: number;
     }) => {
-      sendAction({ type: "create_location", name, latitude, longitude });
+      sendAction({ type: "create_location", name, address, latitude, longitude });
     },
     [sendAction],
   );

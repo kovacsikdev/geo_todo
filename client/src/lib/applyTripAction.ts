@@ -60,6 +60,7 @@ export const applyTripAction = (state: SharedState, action: ClientAction): Share
       nextState.locations.push({
         id: createId(),
         name: action.name,
+        address: action.address,
         latitude: action.latitude,
         longitude: action.longitude,
         items: [],

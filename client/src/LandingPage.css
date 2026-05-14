@@ -98,13 +98,11 @@
   border: 1px solid var(--color-secondary);
   border-radius: 0.5rem;
   padding: 2rem;
-  /* margin: 0 1.5rem; */
   width: 30%;
 }
 
 #LandingPage .landing-details .details .details-card ul {
   padding: 0;
-  /* list-style: none; */
 }
 
 @media (max-width: 800px) {
@@ -117,17 +115,17 @@
     margin-bottom: 1rem;
   }
 
-  #LandingPage .landing-features {
+  #LandingPage .landing-details {
     flex-wrap: wrap;
   }
 
-  #LandingPage .landing-features .landing-card {
-    width: 100%;
-    margin: 1.5rem;
-  }
-
-  #LandingPage .landing-how-it-works .details {
+  #LandingPage .landing-details .details {
     justify-content: center;
     flex-direction: column;
+  }
+
+  #LandingPage .landing-details .details .details-card {
+    width: 100%;
+    margin: 1rem 0;
   }
 }

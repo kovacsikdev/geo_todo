@@ -7,6 +7,7 @@ export type TodoItem = {
 export type LocationTodo = {
   id: string
   name: string
+  address?: string
   latitude: number
   longitude: number
   items: TodoItem[]
@@ -24,7 +25,7 @@ export type SharedState = {
 }
 
 export type ClientAction =
-  | { type: 'create_location'; name: string; latitude: number; longitude: number }
+  | { type: 'create_location'; name: string; address?: string; latitude: number; longitude: number }
   | { type: 'reorder_locations'; locationIds: string[] }
   | { type: 'rename_location'; locationId: string; name: string }
   | { type: 'delete_location'; locationId: string }

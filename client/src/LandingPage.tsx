@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Footer } from "./components/Footer";
@@ -15,19 +14,19 @@ const LandingPage = () => {
       <section className="landing-intro" aria-labelledby="landing-title">
         <div>
           <h1 id="landing-title" className="color-primary">
-            Map Itinerary
+            Map Itin(erary)
           </h1>
           <p>
             Map Itinerary allows you to create dynamic travel plans by adding
-            locations directly on the map and managing tasks tied to each location.
+            locations directly on a map and managing tasks tied to each
+            location.
+          </p>
+          <p>
             Whether you're planning a solo adventure or coordinating with
             friends, our app provides a seamless way to organize your trip and
             collaborate with fellow travelers in real time.
           </p>
-          <button
-            className="cta-button"
-            onClick={() => navigate("/app")}
-          >
+          <button className="cta-button" onClick={() => navigate("/app")}>
             Go to App
           </button>
         </div>
@@ -37,9 +36,14 @@ const LandingPage = () => {
             alt="Map Itinerary sample screenshot"
             className="landing-screenshot"
             tabIndex={0}
-            style={{ cursor: "pointer", maxWidth: "80%", borderRadius: "8px", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}
+            style={{
+              cursor: "pointer",
+              maxWidth: "80%",
+              borderRadius: "8px",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
+            }}
             onClick={() => setModalOpen(true)}
-            onKeyDown={e => {
+            onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") setModalOpen(true);
             }}
             aria-label="Show screenshot fullscreen"
@@ -55,7 +59,7 @@ const LandingPage = () => {
               <button
                 className="modal-close"
                 aria-label="Close screenshot"
-                onClick={e => {
+                onClick={(e) => {
                   e.stopPropagation();
                   setModalOpen(false);
                 }}
@@ -70,9 +74,9 @@ const LandingPage = () => {
                   maxWidth: "90vw",
                   maxHeight: "90vh",
                   borderRadius: "12px",
-                  boxShadow: "0 4px 32px rgba(0,0,0,0.25)"
+                  boxShadow: "0 4px 32px rgba(0,0,0,0.25)",
                 }}
-                onClick={e => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
           )}
@@ -83,35 +87,39 @@ const LandingPage = () => {
         <h2 className="color-primary">Features</h2>
         <div className="details">
           <article className="details-card">
-          <h2>No profile required!</h2>
-          <p>
-            Creating a trip generates unique Owner and Guest IDs, allowing you
-            to manage access without the need for accounts or logins.
-          </p>
-        </article>
-        <article className="details-card">
-          <h2>Owner and guest access</h2>
-          <p>
-            Protect edit access with Owner ID while sharing progress with Guest
-            ID.
-          </p>
-        </article>
-        <article className="details-card">
-          <h2>Live collaboration</h2>
-          <p>
-            Guests receive updates in real time whenever owners modify trip
-            data.
-          </p>
-        </article>
+            <h2>No profile required!</h2>
+            <p>
+              Creating a trip generates unique Owner and Guest IDs, allowing you
+              to manage access without the need for accounts or logins.
+            </p>
+          </article>
+          <article className="details-card">
+            <h2>Your data is safe</h2>
+            <p>
+              Any trip data is stored in a database so you can access it with
+              your IDs whenever you want.
+            </p>
+            <p>
+              You can also delete your trip to permanently remove all trip data
+              to keep your privacy.
+            </p>
+            <p>Your data is never shared with any third parties.</p>
+          </article>
+          <article className="details-card">
+            <h2>Live collaboration</h2>
+            <p>
+              Guests receive updates in real time whenever owners modify trip
+              data.
+            </p>
+          </article>
         </div>
       </section>
 
       <section className="landing-details" aria-label="How it works">
         <h2 className="color-primary">How It Works</h2>
         <p>
-          Create or join a trip using your unique Owner or Guest ID. Select any
-          location on the map to start adding tasks and collaborating in real
-          time.
+          Create a new trip or join an existing trip using your unique Owner or
+          Guest ID. As an owner, you can add locations by clicking on the map and manage tasks.
         </p>
         <div className="details">
           <article className="details-card">

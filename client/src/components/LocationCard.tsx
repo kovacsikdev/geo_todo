@@ -1,8 +1,9 @@
-import { memo, useEffect, useId, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDragPointerSensors } from "../hooks/useDragPointerSensors";
 import type { ClientAction, LocationTodo } from "../types";
 import "./LocationCard.css";
 
@@ -11,13 +12,11 @@ type LocationCardProps = {
   onAction: (action: ClientAction) => void;
   canEdit: boolean;
   onFocusLocation: (longitude: number, latitude: number) => void;
-  onStartDirections: (location: LocationTodo, mode: "driving" | "walking") => void;
+  onOpenLocationEditor: (location: LocationTodo) => void;
+  onOpenDirectionsDialog: (location: LocationTodo) => void;
 };
 
-type EditorState =
-  | { kind: "location" }
-  | { kind: "item"; itemId: string }
-  | null;
+type EditorState = { kind: "item"; itemId: string } | null;
 
 type SortableTaskRowProps = {
   locationId: string;
@@ -25,14 +24,16 @@ type SortableTaskRowProps = {
   canEdit: boolean;
   onAction: (action: ClientAction) => void;
   onOpenEditor: (itemId: string) => void;
+  onDeleteItem: (itemId: string, itemText: string) => void;
 };
 
-const SortableTaskRow = ({
+const SortableTaskRowComponent = ({
   locationId,
   item,
   canEdit,
   onAction,
   onOpenEditor,
+  onDeleteItem,
 }: SortableTaskRowProps) => {
   const {
     attributes,
@@ -99,13 +100,7 @@ const SortableTaskRow = ({
         <button
           type="button"
           className="button danger location-action-button"
-          onClick={() =>
-            onAction({
-              type: "delete_item",
-              locationId,
-              itemId: item.id,
-            })
-          }
+          onClick={() => onDeleteItem(item.id, item.text)}
         >
           Delete
         </button>
@@ -114,12 +109,15 @@ const SortableTaskRow = ({
   );
 };
 
+const SortableTaskRow = memo(SortableTaskRowComponent);
+
 const LocationCardComponent = ({
   location,
   onAction,
   canEdit,
   onFocusLocation,
-  onStartDirections,
+  onOpenLocationEditor,
+  onOpenDirectionsDialog,
 }: LocationCardProps) => {
   const itemContextId = useId();
   const {
@@ -138,15 +136,9 @@ const LocationCardComponent = ({
   const [newItemText, setNewItemText] = useState("");
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isDirectionsDialogOpen, setIsDirectionsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!editorState) {
-      return;
-    }
-
-    if (editorState.kind === "location") {
-      setEditorDraft(location.name);
       return;
     }
 
@@ -154,23 +146,25 @@ const LocationCardComponent = ({
     setEditorDraft(item?.text ?? "");
   }, [editorState, location]);
 
-  const doneCount = location.items.filter((item) => item.done).length;
+  const doneCount = useMemo(
+    () => location.items.filter((item) => item.done).length,
+    [location.items],
+  );
 
-  const openLocationEditor = () => {
-    setEditorState({ kind: "location" });
-    setEditorDraft(location.name);
-  };
+  const openLocationEditor = useCallback(() => {
+    onOpenLocationEditor(location);
+  }, [location, onOpenLocationEditor]);
 
-  const openItemEditor = (itemId: string) => {
+  const openItemEditor = useCallback((itemId: string) => {
     const item = location.items.find((entry) => entry.id === itemId);
     setEditorState({ kind: "item", itemId });
     setEditorDraft(item?.text ?? "");
-  };
+  }, [location.items]);
 
-  const closeEditor = () => {
+  const closeEditor = useCallback(() => {
     setEditorState(null);
     setEditorDraft("");
-  };
+  }, []);
 
   const submitEditor = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -183,30 +177,20 @@ const LocationCardComponent = ({
       return;
     }
 
-    if (editorState.kind === "location") {
-      if (trimmed !== location.name) {
-        onAction({
-          type: "rename_location",
-          locationId: location.id,
-          name: trimmed,
-        });
-      }
-    } else {
-      const item = location.items.find((entry) => entry.id === editorState.itemId);
-      if (item && trimmed !== item.text) {
-        onAction({
-          type: "update_item",
-          locationId: location.id,
-          itemId: item.id,
-          text: trimmed,
-        });
-      }
+    const item = location.items.find((entry) => entry.id === editorState.itemId);
+    if (item && trimmed !== item.text) {
+      onAction({
+        type: "update_item",
+        locationId: location.id,
+        itemId: item.id,
+        text: trimmed,
+      });
     }
 
     closeEditor();
   };
 
-  const addItem = (event: FormEvent<HTMLFormElement>) => {
+  const addItem = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = newItemText.trim();
     if (!trimmed || !canEdit) {
@@ -220,26 +204,16 @@ const LocationCardComponent = ({
     });
     setNewItemText("");
     setIsAddingItem(false);
-  };
+  }, [canEdit, location.id, newItemText, onAction]);
 
-  const cancelAddItem = () => {
+  const cancelAddItem = useCallback(() => {
     setNewItemText("");
     setIsAddingItem(false);
-  };
+  }, []);
 
-  const closeDirectionsDialog = () => {
-    setIsDirectionsDialogOpen(false);
-  };
+  const taskSensors = useDragPointerSensors();
 
-  const taskSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 6,
-      },
-    }),
-  );
-
-  const handleTaskDragEnd = (event: DragEndEvent) => {
+  const handleTaskDragEnd = useCallback((event: DragEndEvent) => {
     if (!canEdit) {
       return;
     }
@@ -261,17 +235,41 @@ const LocationCardComponent = ({
       locationId: location.id,
       itemIds: nextOrder,
     });
-  };
+  }, [canEdit, location.id, location.items, onAction]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  const startDirections = (mode: "driving" | "walking") => {
-    onStartDirections(location, mode);
-    closeDirectionsDialog();
-  };
+  const confirmDeleteLocation = useCallback(() => {
+    const shouldDelete = window.confirm(
+      `Delete location "${location.name}" and all of its tasks?`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    onAction({
+      type: "delete_location",
+      locationId: location.id,
+    });
+  }, [location.id, location.name, onAction]);
+
+  const confirmDeleteItem = useCallback((itemId: string, itemText: string) => {
+    const shouldDelete = window.confirm(`Delete task "${itemText}"?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    onAction({
+      type: "delete_item",
+      locationId: location.id,
+      itemId,
+    });
+  }, [location.id, onAction]);
 
   return (
     <section
@@ -294,6 +292,13 @@ const LocationCardComponent = ({
               ⋮⋮
             </button>
           ) : null}
+          <div className="location-title-wrapper">
+            <div className="location-title">{location.name}</div>
+            {location.address ? (
+              <div className="location-address">{location.address}</div>
+            ) : null}
+            <div className="location-subtitle">{doneCount}/{location.items.length} tasks</div>
+          </div>
           <button
             type="button"
             className="button subtle caret-toggle"
@@ -303,10 +308,6 @@ const LocationCardComponent = ({
           >
             {isCollapsed ? "▸" : "▾"}
           </button>
-          <div className="location-title-wrapper">
-            <div className="location-title">{location.name}</div>
-            <div className="location-subtitle">{doneCount}/{location.items.length} tasks</div>
-          </div>
         </div>
         <div className="location-actions location-actions-below">
           {canEdit ? (
@@ -323,12 +324,7 @@ const LocationCardComponent = ({
             <button
               type="button"
               className="button danger location-action-button"
-              onClick={() =>
-                onAction({
-                  type: "delete_location",
-                  locationId: location.id,
-                })
-              }
+              onClick={confirmDeleteLocation}
             >
               Delete
             </button>
@@ -347,7 +343,7 @@ const LocationCardComponent = ({
           <button
             type="button"
             className="button subtle location-action-button"
-            onClick={() => setIsDirectionsDialogOpen(true)}
+            onClick={() => onOpenDirectionsDialog(location)}
           >
             Directions
           </button>
@@ -367,6 +363,7 @@ const LocationCardComponent = ({
                     canEdit={canEdit}
                     onAction={onAction}
                     onOpenEditor={openItemEditor}
+                    onDeleteItem={confirmDeleteItem}
                   />
                 ))}
               </ul>
@@ -423,10 +420,10 @@ const LocationCardComponent = ({
 
       {editorState && canEdit ? (
         <div className="location-editor-backdrop" role="presentation" onClick={closeEditor}>
-          <div className="location-editor-dialog" role="dialog" aria-modal="true" aria-label={editorState.kind === "location" ? "Edit location" : "Edit task"} onClick={(event) => event.stopPropagation()}>
+          <div className="location-editor-dialog" role="dialog" aria-modal="true" aria-label="Edit task" onClick={(event) => event.stopPropagation()}>
             <form className="location-editor-form" onSubmit={submitEditor}>
               <label className="field-label" htmlFor={`editor-${location.id}`}>
-                {editorState.kind === "location" ? "Edit location" : "Edit task"}
+                Edit task
               </label>
               <input
                 id={`editor-${location.id}`}
@@ -455,47 +452,6 @@ const LocationCardComponent = ({
         </div>
       ) : null}
 
-      {isDirectionsDialogOpen ? (
-        <div className="location-editor-backdrop" role="presentation" onClick={closeDirectionsDialog}>
-          <div
-            className="location-editor-dialog directions-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Choose directions type for ${location.name}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="directions-dialog-copy">
-              <p className="field-label">Directions to {location.name}</p>
-              <p className="directions-dialog-text">
-                Choose whether you want driving or walking directions from your current location.
-              </p>
-            </div>
-            <div className="location-editor-actions">
-              <button
-                type="button"
-                className="button subtle location-action-button"
-                onClick={closeDirectionsDialog}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="button subtle location-action-button"
-                onClick={() => startDirections("walking")}
-              >
-                Walking
-              </button>
-              <button
-                type="button"
-                className="button primary location-action-button"
-                onClick={() => startDirections("driving")}
-              >
-                Driving
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 };

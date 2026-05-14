@@ -1,12 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Feature, LineString } from 'geojson'
-import mapboxgl from 'mapbox-gl'
+import type {
+  GeoJSONSource,
+  Map as MapboxMap,
+  MapMouseEvent,
+  Marker,
+  Popup,
+} from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { LocationTodo, TripRole } from '../types'
 import { createLocationMarkerElement, markerLabelText } from '../lib/tripMapMarkers'
 import { openCreateLocationPopup } from '../lib/tripMapPopup'
 import { buildFocusBounds } from '../lib/mapViewport'
+import {
+  AUTO_CAMERA_RESUME_DELAY_MS,
+  DRIVING_CAMERA_PADDING,
+  DRIVING_CAMERA_PITCH,
+  DRIVING_CAMERA_ZOOM,
+  METERS_PER_MILE,
+  ROUTE_FETCH_INTERVAL_MS,
+  ROUTE_FETCH_MOVE_THRESHOLD_METERS,
+  SEARCH_DEBOUNCE_MS,
+  SEARCH_RESULT_LIMIT,
+  SEARCH_RESULT_TYPES,
+  USER_HEADING_MOVE_THRESHOLD_METERS,
+  USER_LOCATION_STATE_THRESHOLD_METERS,
+  buildRouteFeature,
+  calculateBearingDegrees,
+  distanceBetweenCoordinatesInMeters,
+  formatDirectionsModeLabel,
+  formatDistanceMiles,
+  formatEta,
+  mapSearchFeatureToResult,
+  resolveCategorySearchId,
+  resolveRouteForwardBearing,
+  resolveViewportBounds,
+  type SearchBoxResponse,
+  type SearchResult,
+} from '../lib/tripMapUtils'
 import './TripMap.css'
+
+type MapboxRuntime = typeof import('mapbox-gl')['default']
 
 type FocusRequest = {
   longitude: number
@@ -37,7 +70,7 @@ type TripMapProps = {
   directionsTarget: DirectionsTarget | null
   locations: LocationTodo[]
   focusRequest: FocusRequest | null
-  onCreateLocation: (payload: { name: string; latitude: number; longitude: number }) => void
+  onCreateLocation: (payload: { name: string; address?: string; latitude: number; longitude: number }) => void
   onLocationPinClick: (locationId: string) => void
   onCancelDirections: () => void
   onMapError: (message: string) => void
@@ -55,204 +88,9 @@ type DirectionsApiResponse = {
   message?: string
 }
 
-type SearchBoxFeature = {
-  id?: string
-  geometry?: {
-    type?: string
-    coordinates?: [number, number]
-  }
-  properties?: {
-    mapbox_id?: string
-    feature_type?: string
-    name?: string
-    full_address?: string
-    place_formatted?: string
-    address?: string
-  }
-}
-
-type SearchBoxResponse = {
-  features?: SearchBoxFeature[]
-  message?: string
-}
-
-type SearchResult = {
-  id: string
-  name: string
-  subtitle: string
-  featureType: string
-  longitude: number
-  latitude: number
-}
-
-const SEARCH_RESULT_LIMIT = 10
-const SEARCH_RESULT_TYPES = 'poi,address,street,place,locality,neighborhood,postcode,region,country'
-const SEARCH_DEBOUNCE_MS = 250
 const DIRECTIONS_SOURCE_ID = 'trip-directions-source'
 const DIRECTIONS_LAYER_ID = 'trip-directions-layer'
 const SEARCH_SELECTION_MARKER_CLASS = 'map-search-selection-marker'
-const ROUTE_FETCH_INTERVAL_MS = 10_000
-const ROUTE_FETCH_MOVE_THRESHOLD_METERS = 60
-const USER_HEADING_MOVE_THRESHOLD_METERS = 8
-const USER_LOCATION_STATE_THRESHOLD_METERS = 5
-const AUTO_CAMERA_RESUME_DELAY_MS = 2_500
-const METERS_PER_MILE = 1609.344
-const DRIVING_CAMERA_ZOOM = 16.8
-const DRIVING_CAMERA_PITCH = 64
-const DRIVING_CAMERA_PADDING = {
-  top: 72,
-  right: 40,
-  bottom: 260,
-  left: 40,
-}
-const SEARCH_CATEGORY_MAP: Record<string, string> = {
-  pub: 'bar',
-  pubs: 'bar',
-  bar: 'bar',
-  bars: 'bar',
-  cafe: 'coffee',
-  cafes: 'coffee',
-  'coffee shop': 'coffee',
-  'coffee shops': 'coffee',
-  restaurant: 'restaurant',
-  restaurants: 'restaurant',
-  hotel: 'lodging',
-  hotels: 'lodging',
-  'movie theater': 'cinema',
-  'movie theaters': 'cinema',
-  cinema: 'cinema',
-  cinemas: 'cinema',
-}
-
-const resolveViewportBounds = (map: mapboxgl.Map): [number, number, number, number] => {
-  const bounds = map.getBounds()
-  if (!bounds) {
-    return [-180, -85, 180, 85]
-  }
-
-  return [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
-}
-
-const buildRouteFeature = (coordinates: [number, number][]): Feature<LineString> => ({
-  type: 'Feature',
-  properties: {},
-  geometry: {
-    type: 'LineString',
-    coordinates,
-  },
-})
-
-const distanceBetweenCoordinatesInMeters = (
-  from: [number, number],
-  to: [number, number],
-): number => {
-  const toRadians = (value: number) => (value * Math.PI) / 180
-  const [fromLng, fromLat] = from
-  const [toLng, toLat] = to
-  const earthRadius = 6_371_000
-  const latitudeDelta = toRadians(toLat - fromLat)
-  const longitudeDelta = toRadians(toLng - fromLng)
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(longitudeDelta / 2) ** 2
-
-  return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-const resolveRouteForwardBearing = (
-  origin: [number, number],
-  coordinates: [number, number][],
-  fallbackDestination: [number, number],
-): number => {
-  if (coordinates.length < 2) {
-    return calculateBearingDegrees(origin, fallbackDestination)
-  }
-
-  let nearestIndex = 0
-  let nearestDistance = Number.POSITIVE_INFINITY
-
-  coordinates.forEach((coordinate, index) => {
-    const distance = distanceBetweenCoordinatesInMeters(origin, coordinate)
-    if (distance < nearestDistance) {
-      nearestDistance = distance
-      nearestIndex = index
-    }
-  })
-
-  const nextCoordinate = coordinates[Math.min(nearestIndex + 1, coordinates.length - 1)]
-  if (!nextCoordinate || (nextCoordinate[0] === origin[0] && nextCoordinate[1] === origin[1])) {
-    return calculateBearingDegrees(origin, fallbackDestination)
-  }
-
-  return calculateBearingDegrees(origin, nextCoordinate)
-}
-
-const calculateBearingDegrees = (from: [number, number], to: [number, number]): number => {
-  const toRadians = (value: number) => (value * Math.PI) / 180
-  const toDegrees = (value: number) => (value * 180) / Math.PI
-  const [fromLng, fromLat] = from
-  const [toLng, toLat] = to
-  const longitudeDelta = toRadians(toLng - fromLng)
-  const startLatitude = toRadians(fromLat)
-  const endLatitude = toRadians(toLat)
-  const y = Math.sin(longitudeDelta) * Math.cos(endLatitude)
-  const x =
-    Math.cos(startLatitude) * Math.sin(endLatitude) -
-    Math.sin(startLatitude) * Math.cos(endLatitude) * Math.cos(longitudeDelta)
-
-  return (toDegrees(Math.atan2(y, x)) + 360) % 360
-}
-
-const formatDistanceMiles = (distanceMiles: number): string => {
-  if (distanceMiles >= 10) {
-    return `${distanceMiles.toFixed(0)} mi`
-  }
-
-  return `${distanceMiles.toFixed(1)} mi`
-}
-
-const formatEta = (etaMinutes: number): string => {
-  if (etaMinutes < 60) {
-    return `${Math.max(1, Math.round(etaMinutes))} min`
-  }
-
-  const hours = Math.floor(etaMinutes / 60)
-  const minutes = Math.round(etaMinutes % 60)
-  return `${hours} hr ${minutes} min`
-}
-
-const formatDirectionsModeLabel = (travelMode: 'driving' | 'walking'): string => {
-  return travelMode === 'walking' ? 'Walking' : 'Driving'
-}
-
-const normalizeSearchQuery = (query: string): string => {
-  return query.trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
-const resolveCategorySearchId = (query: string): string | null => {
-  return SEARCH_CATEGORY_MAP[normalizeSearchQuery(query)] ?? null
-}
-
-const mapSearchFeatureToResult = (feature: SearchBoxFeature, index: number): SearchResult | null => {
-  const coordinates = feature.geometry?.coordinates
-  const name = feature.properties?.name?.trim()
-  if (!coordinates || coordinates.length < 2 || !name) {
-    return null
-  }
-
-  return {
-    id: feature.properties?.mapbox_id ?? feature.id ?? `${name}-${index}`,
-    name,
-    subtitle:
-      feature.properties?.full_address?.trim() ??
-      feature.properties?.place_formatted?.trim() ??
-      feature.properties?.address?.trim() ??
-      '',
-    featureType: feature.properties?.feature_type ?? 'unknown',
-    longitude: coordinates[0],
-    latitude: coordinates[1],
-  }
-}
 
 export const TripMap = ({
   accessToken,
@@ -269,13 +107,14 @@ export const TripMap = ({
   onMapError,
   onSearchFocus,
 }: TripMapProps) => {
+  const mapboxRef = useRef<MapboxRuntime | null>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<mapboxgl.Map | null>(null)
-  const locationMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map())
+  const mapRef = useRef<MapboxMap | null>(null)
+  const locationMarkersRef = useRef<Map<string, Marker>>(new Map())
   const markerSnapshotRef = useRef<Map<string, string>>(new Map())
-  const creationPopupRef = useRef<mapboxgl.Popup | null>(null)
-  const searchSelectionMarkerRef = useRef<mapboxgl.Marker | null>(null)
-  const userLocationMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const creationPopupRef = useRef<Popup | null>(null)
+  const searchSelectionMarkerRef = useRef<Marker | null>(null)
+  const userLocationMarkerRef = useRef<Marker | null>(null)
   const userLocationWatchIdRef = useRef<number | null>(null)
   const currentUserCoordinatesRef = useRef<[number, number] | null>(null)
   const previousUserCoordinatesRef = useRef<[number, number] | null>(null)
@@ -331,7 +170,7 @@ export const TripMap = ({
     }
 
     const routeFeature = buildRouteFeature(coordinates)
-    const source = map.getSource(DIRECTIONS_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined
+    const source = map.getSource(DIRECTIONS_SOURCE_ID) as GeoJSONSource | undefined
     if (source) {
       source.setData(routeFeature)
 
@@ -432,7 +271,12 @@ export const TripMap = ({
       const markerElement = document.createElement('div')
       markerElement.className = SEARCH_SELECTION_MARKER_CLASS
 
-      searchSelectionMarkerRef.current = new mapboxgl.Marker({
+      const mapbox = mapboxRef.current
+      if (!mapbox) {
+        return
+      }
+
+      searchSelectionMarkerRef.current = new mapbox.Marker({
         element: markerElement,
         anchor: 'bottom',
       })
@@ -553,24 +397,37 @@ export const TripMap = ({
       return
     }
 
-    mapboxgl.accessToken = accessToken
+    let isCancelled = false
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [8.2, 47.2],
-      zoom: 2.3,
-      attributionControl: false,
-    })
+    void import('mapbox-gl').then(({ default: mapbox }) => {
+      if (isCancelled || !mapContainerRef.current || mapRef.current) {
+        return
+      }
 
-    mapRef.current = map
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')
+      mapbox.accessToken = accessToken
+      mapboxRef.current = mapbox
 
-    map.once('load', () => {
-      setIsMapLoaded(true)
+      const map = new mapbox.Map({
+        container: mapContainerRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [8.2, 47.2],
+        zoom: 2.3,
+        attributionControl: false,
+      })
+
+      mapRef.current = map
+      map.addControl(new mapbox.NavigationControl({ showCompass: false }), 'bottom-right')
+
+      map.once('load', () => {
+        setIsMapLoaded(true)
+      })
     })
 
     return () => {
+      isCancelled = true
+      routeCoordinatesRef.current = []
+      routeOverviewKeyRef.current = null
+      setHasBegunDirections(false)
       setIsMapLoaded(false)
       hasRequestedUserLocationRef.current = false
       hasAutoFocusedUserLocationRef.current = false
@@ -610,13 +467,10 @@ export const TripMap = ({
       locationMarkersRef.current.clear()
       markerSnapshotRef.current.clear()
 
-      map.remove()
+      mapRef.current?.remove()
       mapRef.current = null
+      mapboxRef.current = null
     }
-      routeCoordinatesRef.current = []
-      routeOverviewKeyRef.current = null
-      setHasBegunDirections(false)
-
   }, [accessToken, clearSearchSelectionMarker])
 
   useEffect(() => {
@@ -682,7 +536,12 @@ export const TripMap = ({
         markerElement.className = 'map-user-location-marker'
         markerElement.setAttribute('aria-label', 'Your live location')
 
-        userLocationMarkerRef.current = new mapboxgl.Marker({ element: markerElement, anchor: 'center' })
+        const mapbox = mapboxRef.current
+        if (!mapbox) {
+          return
+        }
+
+        userLocationMarkerRef.current = new mapbox.Marker({ element: markerElement, anchor: 'center' })
           .setLngLat([lng, lat])
           .addTo(map)
       } else {
@@ -825,7 +684,7 @@ export const TripMap = ({
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map) {
+    if (!map || !isMapLoaded) {
       return
     }
 
@@ -846,7 +705,7 @@ export const TripMap = ({
       return
     }
 
-    const onClick = (event: mapboxgl.MapMouseEvent) => {
+    const onClick = (event: MapMouseEvent) => {
       clearSearchSelectionMarker()
 
       if (!hasTrip) {
@@ -864,8 +723,16 @@ export const TripMap = ({
         return
       }
 
+      const mapbox = mapboxRef.current
+      if (!mapbox) {
+        onMapError('Map is still loading. Try again in a moment.')
+        return
+      }
+
       creationPopupRef.current?.remove()
       creationPopupRef.current = openCreateLocationPopup({
+        accessToken,
+        mapbox,
         map,
         event,
         onCreateLocation,
@@ -877,11 +744,21 @@ export const TripMap = ({
     return () => {
       map.off('click', onClick)
     }
-  }, [clearSearchSelectionMarker, hasTrip, isSocketConnected, onCreateLocation, onMapError, tripRole])
+  }, [
+    accessToken,
+    clearSearchSelectionMarker,
+    hasTrip,
+    isMapLoaded,
+    isSocketConnected,
+    onCreateLocation,
+    onMapError,
+    tripRole,
+  ])
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map) {
+    const mapbox = mapboxRef.current
+    if (!map || !mapbox || !isMapLoaded) {
       return
     }
 
@@ -911,8 +788,8 @@ export const TripMap = ({
         return
       }
 
-      const popup = new mapboxgl.Popup({ offset: 16 }).setText(labelText)
-      const marker = new mapboxgl.Marker({ element: createLocationMarkerElement(location), anchor: 'bottom' })
+      const popup = new mapbox.Popup({ offset: 16 }).setText(labelText)
+      const marker = new mapbox.Marker({ element: createLocationMarkerElement(location), anchor: 'bottom' })
         .setLngLat(lngLat)
         .setPopup(popup)
         .addTo(map)
@@ -950,7 +827,7 @@ export const TripMap = ({
       markerMap.delete(markerId)
       markerSnapshots.delete(markerId)
     })
-  }, [clearSearchSelectionMarker, locations, onLocationPinClick])
+  }, [clearSearchSelectionMarker, isMapLoaded, locations, onLocationPinClick])
 
   useEffect(() => {
     if (!directionsTarget || !userCoordinates || !hasBegunDirections) {
@@ -962,7 +839,8 @@ export const TripMap = ({
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !isMapLoaded) {
+    const mapbox = mapboxRef.current
+    if (!map || !mapbox || !isMapLoaded) {
       return
     }
 
@@ -1079,7 +957,7 @@ export const TripMap = ({
         activeDirectionsKeyRef.current = directionsKey
         const bounds = coordinates.reduce(
           (accumulator, coordinate) => accumulator.extend(coordinate),
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
+          new mapbox.LngLatBounds(coordinates[0], coordinates[0]),
         )
         map.fitBounds(bounds, {
           padding: {
