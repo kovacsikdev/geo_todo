@@ -1,6 +1,6 @@
 {
-  "name": "Geo Todo",
-  "short_name": "Geo Todo",
+  "name": "Map Itinerary",
+  "short_name": "MapItin",
   "description": "Plan shared trips with live location todos.",
   "id": "/app",
   "start_url": "/app",
