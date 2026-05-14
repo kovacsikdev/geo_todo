@@ -7,12 +7,12 @@ type TripDeletedMessage = Extract<ServerMessage, { type: 'tripDeleted' }>
 
 type UseTripEventsOptions = {
   serverUrl: string
-  activeTripIdRef: MutableRefObject<string>
   activeAccessIdRef: MutableRefObject<string>
   onTripState: (message: TripStateMessage) => void
   onTripDeleted: (message: TripDeletedMessage) => void
   onReconnectJoinError: (error: Error) => void
   onSocketError: (message: string) => void
+  onReconnectJoinSuccess: (result: RejoinTripResult) => void
 }
 
 type JoinTripResult = {
@@ -22,14 +22,16 @@ type JoinTripResult = {
   guestId?: string
 }
 
+type RejoinTripResult = JoinTripResult
+
 export const useTripEvents = ({
   serverUrl,
-  activeTripIdRef,
   activeAccessIdRef,
   onTripState,
   onTripDeleted,
   onReconnectJoinError,
   onSocketError,
+  onReconnectJoinSuccess,
 }: UseTripEventsOptions) => {
   const eventSourceRef = useRef<EventSource | null>(null)
   const [connected, setConnected] = useState(false)
@@ -84,14 +86,18 @@ export const useTripEvents = ({
           hasConnectedRef.current = true
           setConnected(true)
 
-          if (!activeTripIdRef.current || !activeAccessIdRef.current) {
+          if (!activeAccessIdRef.current) {
             return
           }
 
-          // Re-join the active trip after a reconnect
-          void joinTrip(activeAccessIdRef.current).catch((error: Error) => {
-            onReconnectJoinError(error)
-          })
+          // Re-join after a refresh/reconnect using the last successful access ID.
+          void joinTrip(activeAccessIdRef.current)
+            .then((result) => {
+              onReconnectJoinSuccess(result)
+            })
+            .catch((error: Error) => {
+              onReconnectJoinError(error)
+            })
           return
         }
 
@@ -129,7 +135,6 @@ export const useTripEvents = ({
     }
   }, [
     activeAccessIdRef,
-    activeTripIdRef,
     joinTrip,
     onReconnectJoinError,
     onSocketError,

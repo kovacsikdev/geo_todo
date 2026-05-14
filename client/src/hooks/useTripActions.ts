@@ -1,11 +1,6 @@
 import { useCallback } from "react";
 import type { FormEvent } from "react";
 import { applyTripAction } from "../lib/applyTripAction";
-import {
-  getOwnerIdForTrip,
-  removeOwnerTrip,
-  saveOwnerTrip,
-} from "../lib/organizerKeyStorage";
 import type { ClientAction, SharedState, TripRole } from "../types";
 import type { ToastKind } from "../components/ToastStack";
 
@@ -133,15 +128,17 @@ export function useTripActions({
           updatedAt: new Date().toISOString(),
         };
 
-        saveOwnerTrip(createdTripId, createdOwnerId);
+        // After create, explicitly join as owner so client state follows the same join flow.
+        const joined = await joinTripViaSSE(createdOwnerId);
+
         setSharedState(finalState);
-        setTripRole("owner");
+        setActiveTripId(joined.tripId);
+        setTripRole(joined.role);
         setOwnerId(createdOwnerId);
         setGuestId(createdGuestId);
         setAccessIdDraft(createdOwnerId);
-        setActiveTripId(createdTripId);
         showToast(
-          `Trip created. Guest ID: ${createdGuestId}. Keep owner ID private.`,
+          `Trip created and joined as owner. Guest ID: ${createdGuestId}.`,
           "success",
         );
       } catch (error) {
@@ -153,6 +150,7 @@ export function useTripActions({
       }
     },
     [
+      joinTripViaSSE,
       setActiveTripId,
       setAccessIdDraft,
       setBusy,
@@ -188,12 +186,10 @@ export function useTripActions({
 
         if (joined.role === "owner") {
           const resolvedOwnerId = joined.ownerId ?? trimmedId;
-          saveOwnerTrip(joined.tripId, resolvedOwnerId);
           setOwnerId(resolvedOwnerId);
           setGuestId(joined.guestId ?? "");
-          setAccessIdDraft(resolvedOwnerId);
+          setAccessIdDraft(trimmedId);
         } else {
-          removeOwnerTrip(joined.tripId);
           setOwnerId("");
           setGuestId("");
           setAccessIdDraft(trimmedId);
@@ -243,7 +239,6 @@ export function useTripActions({
         tripId: activeTripId,
         ownerId,
       });
-      removeOwnerTrip(activeTripId);
       leaveTrip();
     } catch (error) {
       showToast(
@@ -274,7 +269,7 @@ export function useTripActions({
         return;
       }
 
-      const resolvedOwnerId = ownerId || getOwnerIdForTrip(activeTripId) || "";
+      const resolvedOwnerId = ownerId;
       if (!resolvedOwnerId) {
         showToast("Missing owner ID for update request.");
         return;

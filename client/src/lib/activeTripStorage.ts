@@ -1,23 +1,23 @@
-const ACTIVE_TRIP_STORAGE_KEY = 'geo-todo-active-trip-id'
+const ACTIVE_ACCESS_ID_STORAGE_KEY = 'geo-todo-active-access-id'
 
-const normalizeTripId = (value: unknown): string => {
+const normalizeAccessId = (value: unknown): string => {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export const loadActiveTripId = (): string => {
-  const raw = window.localStorage.getItem(ACTIVE_TRIP_STORAGE_KEY)
-  return normalizeTripId(raw)
+export const loadActiveAccessId = (): string => {
+  const current = window.localStorage.getItem(ACTIVE_ACCESS_ID_STORAGE_KEY)
+  return normalizeAccessId(current)
 }
 
-export const saveActiveTripId = (tripId: string): void => {
-  const normalizedTripId = normalizeTripId(tripId)
-  if (!normalizedTripId) {
+export const saveActiveAccessId = (accessId: string): void => {
+  const normalizedAccessId = normalizeAccessId(accessId)
+  if (!normalizedAccessId) {
     return
   }
 
-  window.localStorage.setItem(ACTIVE_TRIP_STORAGE_KEY, normalizedTripId)
+  window.localStorage.setItem(ACTIVE_ACCESS_ID_STORAGE_KEY, normalizedAccessId)
 }
 
-export const clearActiveTripId = (): void => {
-  window.localStorage.removeItem(ACTIVE_TRIP_STORAGE_KEY)
+export const clearActiveAccessId = (): void => {
+  window.localStorage.removeItem(ACTIVE_ACCESS_ID_STORAGE_KEY)
 }
