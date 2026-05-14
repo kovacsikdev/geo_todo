@@ -7,17 +7,27 @@ type CreateLocationPayload = {
   longitude: number
 }
 
+type OpenCreateLocationPopupAtCoordinatesOptions = {
+  map: mapboxgl.Map
+  latitude: number
+  longitude: number
+  suggestedLocationName?: string
+  onCreateLocation: (payload: CreateLocationPayload) => void
+}
+
 type OpenCreateLocationPopupOptions = {
   map: mapboxgl.Map
   event: mapboxgl.MapMouseEvent
   onCreateLocation: (payload: CreateLocationPayload) => void
 }
 
-export const openCreateLocationPopup = ({
+export const openCreateLocationPopupAtCoordinates = ({
   map,
-  event,
+  latitude,
+  longitude,
+  suggestedLocationName,
   onCreateLocation,
-}: OpenCreateLocationPopupOptions): mapboxgl.Popup => {
+}: OpenCreateLocationPopupAtCoordinatesOptions): mapboxgl.Popup => {
   const content = document.createElement('div')
   content.className = 'map-create-popup'
 
@@ -29,7 +39,6 @@ export const openCreateLocationPopup = ({
   input.placeholder = 'Location name'
   input.maxLength = 80
 
-  const suggestedLocationName = resolveSuggestedLocationName(map, event)
   if (suggestedLocationName) {
     input.value = suggestedLocationName
   }
@@ -49,7 +58,7 @@ export const openCreateLocationPopup = ({
   content.append(prompt, input, actions)
 
   const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
-    .setLngLat(event.lngLat)
+    .setLngLat([longitude, latitude])
     .setDOMContent(content)
     .addTo(map)
 
@@ -62,8 +71,8 @@ export const openCreateLocationPopup = ({
 
     onCreateLocation({
       name: trimmedName,
-      latitude: event.lngLat.lat,
-      longitude: event.lngLat.lng,
+      latitude,
+      longitude,
     })
 
     popup.remove()
@@ -86,4 +95,18 @@ export const openCreateLocationPopup = ({
   })
 
   return popup
+}
+
+export const openCreateLocationPopup = ({
+  map,
+  event,
+  onCreateLocation,
+}: OpenCreateLocationPopupOptions): mapboxgl.Popup => {
+  return openCreateLocationPopupAtCoordinates({
+    map,
+    latitude: event.lngLat.lat,
+    longitude: event.lngLat.lng,
+    suggestedLocationName: resolveSuggestedLocationName(map, event),
+    onCreateLocation,
+  })
 }

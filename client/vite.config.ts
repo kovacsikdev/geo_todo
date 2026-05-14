@@ -14,10 +14,6 @@ export default defineConfig({
             return 'mapbox'
           }
 
-          if (id.includes('@turf/turf')) {
-            return 'turf'
-          }
-
           return undefined
         },
       },

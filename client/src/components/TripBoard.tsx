@@ -9,6 +9,7 @@ type TripBoardProps = {
   locations: LocationTodo[]
   onAction: (action: ClientAction) => void
   onFocusLocation: (longitude: number, latitude: number) => void
+  onStartDirections: (location: LocationTodo, mode: 'driving' | 'walking') => void
 }
 
 const TripBoardComponent = ({
@@ -17,6 +18,7 @@ const TripBoardComponent = ({
   locations,
   onAction,
   onFocusLocation,
+  onStartDirections,
 }: TripBoardProps) => {
   return (
     <>
@@ -39,6 +41,7 @@ const TripBoardComponent = ({
               onAction={onAction}
               canEdit={tripRole === 'owner'}
               onFocusLocation={onFocusLocation}
+              onStartDirections={onStartDirections}
             />
           ))
         )}

@@ -8,6 +8,7 @@ type LocationCardProps = {
   onAction: (action: ClientAction) => void;
   canEdit: boolean;
   onFocusLocation: (longitude: number, latitude: number) => void;
+  onStartDirections: (location: LocationTodo, mode: "driving" | "walking") => void;
 };
 
 type EditorState =
@@ -20,12 +21,14 @@ const LocationCardComponent = ({
   onAction,
   canEdit,
   onFocusLocation,
+  onStartDirections,
 }: LocationCardProps) => {
   const [editorState, setEditorState] = useState<EditorState>(null);
   const [editorDraft, setEditorDraft] = useState("");
   const [newItemText, setNewItemText] = useState("");
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDirectionsDialogOpen, setIsDirectionsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!editorState) {
@@ -114,6 +117,15 @@ const LocationCardComponent = ({
     setIsAddingItem(false);
   };
 
+  const closeDirectionsDialog = () => {
+    setIsDirectionsDialogOpen(false);
+  };
+
+  const startDirections = (mode: "driving" | "walking") => {
+    onStartDirections(location, mode);
+    closeDirectionsDialog();
+  };
+
   return (
     <section
       id={`location-card-${location.id}`}
@@ -170,6 +182,14 @@ const LocationCardComponent = ({
             }
           >
             Zoom
+          </button>
+
+          <button
+            type="button"
+            className="button subtle location-action-button"
+            onClick={() => setIsDirectionsDialogOpen(true)}
+          >
+            Directions
           </button>
         </div>
       </div>
@@ -303,6 +323,48 @@ const LocationCardComponent = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isDirectionsDialogOpen ? (
+        <div className="location-editor-backdrop" role="presentation" onClick={closeDirectionsDialog}>
+          <div
+            className="location-editor-dialog directions-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Choose directions type for ${location.name}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="directions-dialog-copy">
+              <p className="field-label">Directions to {location.name}</p>
+              <p className="directions-dialog-text">
+                Choose whether you want driving or walking directions from your current location.
+              </p>
+            </div>
+            <div className="location-editor-actions">
+              <button
+                type="button"
+                className="button subtle location-action-button"
+                onClick={closeDirectionsDialog}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button subtle location-action-button"
+                onClick={() => startDirections("walking")}
+              >
+                Walking
+              </button>
+              <button
+                type="button"
+                className="button primary location-action-button"
+                onClick={() => startDirections("driving")}
+              >
+                Driving
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

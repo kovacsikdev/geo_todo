@@ -49,6 +49,13 @@ type UseTripActionsOptions = {
   emptyState: SharedState;
 };
 
+type JoinedTripResult = {
+  tripId: string;
+  role: "owner" | "guest";
+  ownerId?: string;
+  guestId?: string;
+};
+
 export function useTripActions({
   serverUrl,
   connected,
@@ -69,6 +76,30 @@ export function useTripActions({
   showToast,
   emptyState,
 }: UseTripActionsOptions) {
+  const applyJoinedTripState = useCallback(
+    (joined: JoinedTripResult, accessId: string) => {
+      setActiveTripId(joined.tripId);
+      setTripRole(joined.role);
+      setAccessIdDraft(accessId);
+
+      if (joined.role === "owner") {
+        setOwnerId(joined.ownerId ?? accessId);
+        setGuestId(joined.guestId ?? "");
+        return;
+      }
+
+      setOwnerId("");
+      setGuestId("");
+    },
+    [
+      setAccessIdDraft,
+      setActiveTripId,
+      setGuestId,
+      setOwnerId,
+      setTripRole,
+    ],
+  );
+
   const leaveTrip = useCallback(() => {
     setActiveTripId("");
     setOwnerId("");
@@ -132,11 +163,14 @@ export function useTripActions({
         const joined = await joinTripViaSSE(createdOwnerId);
 
         setSharedState(finalState);
-        setActiveTripId(joined.tripId);
-        setTripRole(joined.role);
-        setOwnerId(createdOwnerId);
-        setGuestId(createdGuestId);
-        setAccessIdDraft(createdOwnerId);
+        applyJoinedTripState(
+          {
+            ...joined,
+            ownerId: createdOwnerId,
+            guestId: createdGuestId,
+          },
+          createdOwnerId,
+        );
         showToast(
           `Trip created and joined as owner. Guest ID: ${createdGuestId}.`,
           "success",
@@ -150,14 +184,10 @@ export function useTripActions({
       }
     },
     [
+      applyJoinedTripState,
       joinTripViaSSE,
-      setActiveTripId,
-      setAccessIdDraft,
       setBusy,
-      setGuestId,
-      setOwnerId,
       setSharedState,
-      setTripRole,
       showToast,
       serverUrl,
       tripNameDraft,
@@ -181,19 +211,7 @@ export function useTripActions({
       setBusy(true);
       try {
         const joined = await joinTripViaSSE(trimmedId);
-        setActiveTripId(joined.tripId);
-        setTripRole(joined.role);
-
-        if (joined.role === "owner") {
-          const resolvedOwnerId = joined.ownerId ?? trimmedId;
-          setOwnerId(resolvedOwnerId);
-          setGuestId(joined.guestId ?? "");
-          setAccessIdDraft(trimmedId);
-        } else {
-          setOwnerId("");
-          setGuestId("");
-          setAccessIdDraft(trimmedId);
-        }
+        applyJoinedTripState(joined, trimmedId);
 
         showToast("Joined trip successfully.", "success");
       } catch (error) {
@@ -203,14 +221,10 @@ export function useTripActions({
       }
     },
     [
+      applyJoinedTripState,
       connected,
       joinTripViaSSE,
-      setActiveTripId,
-      setAccessIdDraft,
       setBusy,
-      setGuestId,
-      setOwnerId,
-      setTripRole,
       showToast,
       accessIdDraft,
     ],

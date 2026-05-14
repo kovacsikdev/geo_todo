@@ -18,11 +18,11 @@ import { useTripEvents } from "./hooks/useTripEvents";
 import { useToastQueue } from "./hooks/useToastQueue";
 import { useMenuLocationScroll } from "./hooks/useMenuLocationScroll";
 import { useTripActions } from "./hooks/useTripActions";
-import type { SharedState, TripRole } from "./types";
+import type { LocationTodo, SharedState, TripRole } from "./types";
 import "./TripApp.css";
 
 const TripMap = lazy(() =>
-  import("./components/TripMap").then((module) => ({
+  import("./components/TripMap.tsx").then((module) => ({
     default: module.TripMap,
   })),
 );
@@ -49,6 +49,14 @@ type FocusRequest = {
   longitude: number;
   latitude: number;
   nonce: number;
+};
+
+type DirectionsTarget = {
+  locationId: string;
+  name: string;
+  longitude: number;
+  latitude: number;
+  travelMode: "driving" | "walking";
 };
 
 const isStandaloneMode = (): boolean => {
@@ -95,6 +103,7 @@ const TripApp = () => {
   const [pendingLocationScrollId, setPendingLocationScrollId] = useState<
     string | null
   >(null);
+  const [directionsTarget, setDirectionsTarget] = useState<DirectionsTarget | null>(null);
   const [mapFocusRequest, setMapFocusRequest] = useState<FocusRequest | null>(
     null,
   );
@@ -112,6 +121,27 @@ const TripApp = () => {
       saveActiveAccessId(accessIdDraft);
     }
   }, [activeTripId, accessIdDraft]);
+
+  useEffect(() => {
+    if (activeTripId) {
+      return;
+    }
+
+    setDirectionsTarget(null);
+  }, [activeTripId]);
+
+  useEffect(() => {
+    if (!directionsTarget) {
+      return;
+    }
+
+    const targetStillExists = sharedState.locations.some(
+      (location) => location.id === directionsTarget.locationId,
+    );
+    if (!targetStillExists) {
+      setDirectionsTarget(null);
+    }
+  }, [directionsTarget, sharedState.locations]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(display-mode: standalone)");
@@ -292,6 +322,21 @@ const TripApp = () => {
     setIsMenuOpen(true);
   }, []);
 
+  const handleStartDirections = useCallback((location: LocationTodo, travelMode: "driving" | "walking") => {
+    setIsMenuOpen(false);
+    setDirectionsTarget({
+      locationId: location.id,
+      name: location.name,
+      longitude: location.longitude,
+      latitude: location.latitude,
+      travelMode,
+    });
+  }, []);
+
+  const handleCancelDirections = useCallback(() => {
+    setDirectionsTarget(null);
+  }, []);
+
   const handleMapError = useCallback(
     (message: string) => {
       showToast(message);
@@ -357,10 +402,12 @@ const TripApp = () => {
           tripRole={tripRole}
           isSocketConnected={connected}
           isMenuOpen={isMenuOpen}
+          directionsTarget={directionsTarget}
           locations={sharedState.locations}
           focusRequest={mapFocusRequest}
           onCreateLocation={handleMapCreateLocation}
           onLocationPinClick={handleMapLocationPinClick}
+          onCancelDirections={handleCancelDirections}
           onMapError={handleMapError}
         />
       </Suspense>
@@ -444,6 +491,7 @@ const TripApp = () => {
           locations={sharedState.locations}
           onAction={sendAction}
           onFocusLocation={handleFocusLocation}
+          onStartDirections={handleStartDirections}
         />
       </aside>
     </main>
