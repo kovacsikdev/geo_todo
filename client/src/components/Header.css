@@ -18,6 +18,17 @@
     1;
 }
 
+#Header .header-title {
+  display: flex;
+  align-items: center;
+}
+
+#Header .header-title img {
+  width: 4rem;
+  height: 4rem;
+  margin-right: 1rem;
+}
+
 @media (max-width: 480px) {
   #Header {
     flex-direction: column;

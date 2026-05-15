@@ -17,7 +17,7 @@ const LandingPage = () => {
             Map Itin(erary)
           </h1>
           <p>
-            Map Itinerary allows you to create dynamic travel plans by adding
+            Map Itin allows you to create dynamic travel itineraries by adding
             locations directly on a map and managing tasks tied to each
             location.
           </p>
@@ -27,7 +27,7 @@ const LandingPage = () => {
             collaborate with fellow travelers in real time.
           </p>
           <button className="cta-button" onClick={() => navigate("/app")}>
-            Go to App
+            Try it now
           </button>
         </div>
         <div className="screenshot-container">
@@ -40,7 +40,7 @@ const LandingPage = () => {
               cursor: "pointer",
               maxWidth: "80%",
               borderRadius: "8px",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
+              boxShadow: "0 0 24px rgba(0,0,0,0.25)",
             }}
             onClick={() => setModalOpen(true)}
             onKeyDown={(e) => {
@@ -94,7 +94,7 @@ const LandingPage = () => {
             </p>
           </article>
           <article className="details-card">
-            <h2>Your data is safe</h2>
+            <h2>Secure</h2>
             <p>
               Any trip data is stored in a database so you can access it with
               your IDs whenever you want.
@@ -119,34 +119,27 @@ const LandingPage = () => {
         <h2 className="color-primary">How It Works</h2>
         <p>
           Create a new trip or join an existing trip using your unique Owner or
-          Guest ID. As an owner, you can add locations by clicking on the map and manage tasks.
+          Guest ID. As an owner, you can add locations by clicking on the map
+          and manage tasks.
         </p>
         <div className="details">
           <article className="details-card">
             <h3>Create a trip</h3>
-            <ul>
-              <li>Creating a trip generates unique Owner and Guest IDs</li>
-              <li>Share the Owner ID if you want co-ownership collaboration</li>
-              <li>
-                Share the Guest ID for others to view the trip in real-time
-              </li>
-            </ul>
+            <p>Creating a trip generates unique Owner and Guest IDs</p>
+            <p>Share the Owner ID if you want co-ownership collaboration</p>
+            <p>Share the Guest ID for others to view the trip in real-time</p>
           </article>
           <article className="details-card">
             <h3>Owner ID</h3>
-            <ul>
-              <li>Allows adding, editing and deleting locations and tasks</li>
-            </ul>
+            <p>Allows adding, editing and deleting locations and tasks</p>
           </article>
           <article className="details-card">
             <h3>Guest ID</h3>
-            <ul>
-              <li>Read only access to a created trip</li>
-              <li>
-                Can view locations and tasks in real time as the owner makes
-                updates
-              </li>
-            </ul>
+            <p>Read only access to a created trip</p>
+            <p>
+              Can view locations and tasks in real time as the owner makes
+              updates
+            </p>
           </article>
         </div>
       </section>

@@ -73,7 +73,7 @@
 
 #LandingPage section {
   display: flex;
-  margin: 10rem 0;
+  margin: 8rem 0;
 }
 
 #LandingPage .landing-intro {
@@ -99,10 +99,6 @@
   border-radius: 0.5rem;
   padding: 2rem;
   width: 30%;
-}
-
-#LandingPage .landing-details .details .details-card ul {
-  padding: 0;
 }
 
 @media (max-width: 800px) {
