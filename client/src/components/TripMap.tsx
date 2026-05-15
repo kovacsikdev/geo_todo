@@ -70,7 +70,7 @@ type TripMapProps = {
   directionsTarget: DirectionsTarget | null
   locations: LocationTodo[]
   focusRequest: FocusRequest | null
-  onCreateLocation: (payload: { name: string; address?: string; latitude: number; longitude: number }) => void
+  onCreateLocation: (payload: { name: string; address?: string; latitude: number; longitude: number }) => Promise<void>
   onLocationPinClick: (locationId: string) => void
   onCancelDirections: () => void
   onMapError: (message: string) => void
@@ -1034,6 +1034,7 @@ export const TripMap = ({
   return (
     <section className="map-stage" aria-label="Trip map">
       <div ref={mapContainerRef} className="map-canvas" />
+      {accessToken && !isMapLoaded ? <div className="map-loading-overlay">Loading...</div> : null}
       <div className="map-search-control">
         <label className="map-search-label" htmlFor="trip-map-search">
           Search places and addresses

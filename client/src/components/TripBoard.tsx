@@ -12,7 +12,7 @@ type TripBoardProps = {
   hasTrip: boolean
   tripRole: TripRole
   locations: LocationTodo[]
-  onAction: (action: ClientAction) => void
+  onAction: (action: ClientAction) => Promise<void>
   onFocusLocation: (longitude: number, latitude: number) => void
   onStartDirections: (location: LocationTodo, mode: 'driving' | 'walking') => void
 }

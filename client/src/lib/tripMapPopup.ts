@@ -22,14 +22,14 @@ type OpenCreateLocationPopupAtCoordinatesOptions = {
   longitude: number
   suggestedLocationName?: string
   suggestedLocationAddress?: string
-  onCreateLocation: (payload: CreateLocationPayload) => void
+  onCreateLocation: (payload: CreateLocationPayload) => Promise<void>
 }
 
 type OpenCreateLocationPopupOptions = {
   mapbox: MapboxRuntime
   map: MapboxMap
   event: MapMouseEvent
-  onCreateLocation: (payload: CreateLocationPayload) => void
+  onCreateLocation: (payload: CreateLocationPayload) => Promise<void>
 }
 
 export const openCreateLocationPopupAtCoordinates = ({
@@ -97,7 +97,7 @@ export const openCreateLocationPopupAtCoordinates = ({
         name: trimmedName,
       }))
 
-    onCreateLocation({
+    await onCreateLocation({
       name: trimmedName,
       address: resolvedAddress,
       latitude,

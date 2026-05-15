@@ -9,7 +9,7 @@ import "./LocationCard.css";
 
 type LocationCardProps = {
   location: LocationTodo;
-  onAction: (action: ClientAction) => void;
+  onAction: (action: ClientAction) => Promise<void>;
   canEdit: boolean;
   onFocusLocation: (longitude: number, latitude: number) => void;
   onOpenLocationEditor: (location: LocationTodo) => void;
@@ -22,7 +22,7 @@ type SortableTaskRowProps = {
   locationId: string;
   item: LocationTodo["items"][number];
   canEdit: boolean;
-  onAction: (action: ClientAction) => void;
+  onAction: (action: ClientAction) => Promise<void>;
   onOpenEditor: (itemId: string) => void;
   onDeleteItem: (itemId: string, itemText: string) => void;
 };
@@ -135,6 +135,7 @@ const LocationCardComponent = ({
   const [editorDraft, setEditorDraft] = useState("");
   const [newItemText, setNewItemText] = useState("");
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isSubmittingNewItem, setIsSubmittingNewItem] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -197,13 +198,16 @@ const LocationCardComponent = ({
       return;
     }
 
-    onAction({
+    setIsSubmittingNewItem(true);
+    void onAction({
       type: "add_item",
       locationId: location.id,
       text: trimmed,
+    }).finally(() => {
+      setIsSubmittingNewItem(false);
+      setNewItemText("");
+      setIsAddingItem(false);
     });
-    setNewItemText("");
-    setIsAddingItem(false);
   }, [canEdit, location.id, newItemText, onAction]);
 
   const cancelAddItem = useCallback(() => {
@@ -378,8 +382,9 @@ const LocationCardComponent = ({
                   className="new-item-input"
                   value={newItemText}
                   onChange={(event) => setNewItemText(event.target.value)}
+                  disabled={isSubmittingNewItem}
                   onBlur={() => {
-                    if (newItemText.trim().length === 0) {
+                    if (!isSubmittingNewItem && newItemText.trim().length === 0) {
                       cancelAddItem();
                     }
                   }}
@@ -390,14 +395,15 @@ const LocationCardComponent = ({
                   <button
                     type="submit"
                     className="button primary location-action-button"
-                    disabled={newItemText.trim().length === 0}
+                    disabled={isSubmittingNewItem || newItemText.trim().length === 0}
                   >
-                    Add
+                    {isSubmittingNewItem ? "Adding..." : "Add"}
                   </button>
                   <button
                     type="button"
                     className="button subtle location-action-button"
                     onClick={cancelAddItem}
+                    disabled={isSubmittingNewItem}
                   >
                     Delete
                   </button>

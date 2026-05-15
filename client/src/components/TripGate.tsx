@@ -5,6 +5,7 @@ import "./TripGate.css"
 type TripGateProps = {
   connected: boolean
   busy: boolean
+  busyState: "create" | "join" | "delete" | null
   tripNameDraft: string
   accessIdDraft: string
   onTripNameDraftChange: (value: string) => void
@@ -16,6 +17,7 @@ type TripGateProps = {
 const TripGateComponent = ({
   connected,
   busy,
+  busyState,
   tripNameDraft,
   accessIdDraft,
   onTripNameDraftChange,
@@ -41,7 +43,7 @@ const TripGateComponent = ({
             placeholder="e.g. Summer in Lisbon"
           />
           <button type="submit" className="button primary trip-gate-button" disabled={disabled || tripNameDraft.trim().length === 0}>
-            Create
+            {busyState === 'create' ? 'Creating...' : 'Create'}
           </button>
         </div>
         <p className="gate-note">Creating a trip will generate a new Owner ID and Guest ID</p>
@@ -59,7 +61,7 @@ const TripGateComponent = ({
             placeholder="Enter ID (xxxx-xxxx)"
           />
           <button type="submit" className="button subtle trip-gate-button" disabled={disabled || accessIdDraft.trim().length === 0}>
-            Join
+            {busyState === 'join' ? 'Joining...' : 'Join'}
           </button>
         </div>
         <p className="gate-note">Enter Owner ID: Gives ability to add and edit tasks</p>

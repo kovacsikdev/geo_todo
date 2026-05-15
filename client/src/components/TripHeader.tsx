@@ -7,6 +7,7 @@ import "./TripHeader.css";
 type TripHeaderProps = {
   hasTrip: boolean;
   busy: boolean;
+  busyState: "create" | "join" | "delete" | null;
   tripNameDraft: string;
   accessIdDraft: string;
   trip: Trip;
@@ -26,6 +27,7 @@ type TripHeaderProps = {
 const TripHeaderComponent = ({
   hasTrip,
   busy,
+  busyState,
   tripNameDraft,
   accessIdDraft,
   trip,
@@ -56,6 +58,7 @@ const TripHeaderComponent = ({
         <TripGate
           connected={connected}
           busy={busy}
+          busyState={busyState}
           tripNameDraft={tripNameDraft}
           accessIdDraft={accessIdDraft}
           onTripNameDraftChange={onTripNameDraftChange}

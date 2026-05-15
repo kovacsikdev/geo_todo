@@ -94,6 +94,7 @@ const TripApp = () => {
   const [ownerId, setOwnerId] = useState("");
   const [guestId, setGuestId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyState, setBusyState] = useState<"create" | "join" | "delete" | null>(null);
   const [tripRole, setTripRole] = useState<TripRole>(initialSession.initialRole);
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(() => window.__geoTodoBeforeInstallPromptEvent ?? null);
@@ -287,6 +288,7 @@ const TripApp = () => {
     tripRole,
     joinTripViaSSE,
     setBusy,
+    setBusyState,
     setActiveTripId,
     setOwnerId,
     setGuestId,
@@ -306,7 +308,7 @@ const TripApp = () => {
   );
 
   const handleMapCreateLocation = useCallback(
-    ({
+    async ({
       name,
       address,
       latitude,
@@ -317,7 +319,7 @@ const TripApp = () => {
       latitude: number;
       longitude: number;
     }) => {
-      sendAction({ type: "create_location", name, address, latitude, longitude });
+      await sendAction({ type: "create_location", name, address, latitude, longitude });
     },
     [sendAction],
   );
@@ -404,7 +406,11 @@ const TripApp = () => {
   return (
     <main className="app-shell">
       <Suspense
-        fallback={<section className="map-stage" aria-label="Trip map" />}
+        fallback={
+          <section className="map-stage" aria-label="Trip map">
+            <div className="map-loading-overlay">Loading...</div>
+          </section>
+        }
       >
         <TripMap
           accessToken={MAPBOX_ACCESS_TOKEN}
@@ -477,6 +483,7 @@ const TripApp = () => {
         <TripHeader
           hasTrip={hasTrip}
           busy={busy}
+          busyState={busyState}
           tripNameDraft={tripNameDraft}
           accessIdDraft={accessIdDraft}
           trip={sharedState.trip}

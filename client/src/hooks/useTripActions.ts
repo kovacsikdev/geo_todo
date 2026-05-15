@@ -39,6 +39,7 @@ type UseTripActionsOptions = {
     guestId?: string;
   }>;
   setBusy: (value: boolean) => void;
+  setBusyState: (value: "create" | "join" | "delete" | null) => void;
   setActiveTripId: (value: string) => void;
   setOwnerId: (value: string) => void;
   setGuestId: (value: string) => void;
@@ -67,6 +68,7 @@ export function useTripActions({
   tripRole,
   joinTripViaSSE,
   setBusy,
+  setBusyState,
   setActiveTripId,
   setOwnerId,
   setGuestId,
@@ -127,6 +129,7 @@ export function useTripActions({
       }
 
       setBusy(true);
+      setBusyState("create");
       try {
         // Server will generate the trip ID; use placeholder for now
         const nextState: SharedState = {
@@ -181,12 +184,14 @@ export function useTripActions({
         );
       } finally {
         setBusy(false);
+        setBusyState(null);
       }
     },
     [
       applyJoinedTripState,
       joinTripViaSSE,
       setBusy,
+      setBusyState,
       setSharedState,
       showToast,
       serverUrl,
@@ -209,6 +214,7 @@ export function useTripActions({
       }
 
       setBusy(true);
+      setBusyState("join");
       try {
         const joined = await joinTripViaSSE(trimmedId);
         applyJoinedTripState(joined, trimmedId);
@@ -218,6 +224,7 @@ export function useTripActions({
         showToast(error instanceof Error ? error.message : "Trip not found.");
       } finally {
         setBusy(false);
+        setBusyState(null);
       }
     },
     [
@@ -225,6 +232,7 @@ export function useTripActions({
       connected,
       joinTripViaSSE,
       setBusy,
+      setBusyState,
       showToast,
       accessIdDraft,
     ],
@@ -248,6 +256,7 @@ export function useTripActions({
     }
 
     setBusy(true);
+    setBusyState("delete");
     try {
       await ownerFetch(serverUrl, "deleteTrip", {
         tripId: activeTripId,
@@ -260,6 +269,7 @@ export function useTripActions({
       );
     } finally {
       setBusy(false);
+      setBusyState(null);
     }
   }, [
     activeTripId,
@@ -267,6 +277,7 @@ export function useTripActions({
     ownerId,
     serverUrl,
     setBusy,
+    setBusyState,
     showToast,
     tripRole,
   ]);
