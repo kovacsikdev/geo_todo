@@ -30,11 +30,11 @@
 }
 
 @media (max-width: 480px) {
-  #Header {
+  /* #Header {
     flex-direction: column;
     justify-content: center;
     padding-bottom: 0.5rem;
-  }
+  } */
 
   #Header h1 {
     font-size: 1.5rem;

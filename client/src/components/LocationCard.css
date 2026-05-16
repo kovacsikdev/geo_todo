@@ -36,7 +36,6 @@
 .drag-handle {
   border: none;
   background: transparent;
-  color: var(--ink-muted);
   cursor: grab;
   padding: 0.15rem 0.2rem;
   line-height: 1;
@@ -57,7 +56,6 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--ink-strong);
   line-height: 1;
   margin-left: auto;
 }
@@ -70,12 +68,10 @@
 
 .location-title {
   font-weight: 700;
-  color: var(--ink-strong);
   line-height: 1.2;
 }
 
 .location-address {
-  color: var(--ink-muted);
   font-size: 0.92rem;
   line-height: 1.35;
   word-break: break-word;
@@ -129,13 +125,11 @@
 
 .todo-item-text {
   min-width: 0;
-  color: var(--ink-strong);
   word-break: break-word;
 }
 
 .todo-item-text.is-done {
   text-decoration: line-through;
-  color: var(--ink-muted);
 }
 
 .checkbox-wrap,
@@ -201,7 +195,6 @@
 
 .directions-dialog-text {
   margin: 0;
-  color: var(--ink-muted);
 }
 
 .location-editor-actions {

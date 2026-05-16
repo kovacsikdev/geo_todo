@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import "./LandingPage.css";
 
 const LandingPage = () => {
-  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   return (
     <div id="LandingPage">
@@ -13,11 +12,11 @@ const LandingPage = () => {
 
       <section className="landing-intro" aria-labelledby="landing-title">
         <div>
-          <h1 id="landing-title" className="color-primary">
-            Map Itin(erary)
+          <h1 id="landing-title">
+            <span className="color-primary">Map</span><span className="color-graphite">Itin(erary)</span>
           </h1>
           <p>
-            Map Itin allows you to create dynamic travel itineraries by adding
+            MapItin allows you to create dynamic travel itineraries by adding
             locations directly on a map and managing tasks tied to each
             location.
           </p>
@@ -26,9 +25,9 @@ const LandingPage = () => {
             friends, our app provides a seamless way to organize your trip and
             collaborate with fellow travelers in real time.
           </p>
-          <button className="cta-button" onClick={() => navigate("/app")}>
+          <Link className="cta-button" to="/app">
             Try it now
-          </button>
+          </Link>
         </div>
         <div className="screenshot-container">
           <img

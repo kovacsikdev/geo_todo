@@ -3,15 +3,15 @@
   --color-secondary: #d3d3d3;
   --color-tertiary: #FFF;
   --color-neutral: #202124;
-  --ink-strong: #092448;
-  --ink-muted: #3f5574;
+  --color-graphite: #494c50;
+  --color-graphite-dark: #303236;
   --stroke-soft: rgba(15, 60, 112, 0.24);
 
   font-family: 'Sora', 'Segoe UI', sans-serif;
   line-height: 1.4;
   font-weight: 400;
   min-height: 100svh;
-  color: var(--ink-strong);
+  color: var(--color-neutral);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -56,4 +56,8 @@ body {
 
 .color-primary {
   color: var(--color-primary);
+}
+
+.color-graphite {
+  color: var(--color-graphite);
 }

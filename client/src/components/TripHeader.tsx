@@ -45,13 +45,18 @@ const TripHeaderComponent = ({
 }: TripHeaderProps) => {
   return (
     <header className="hero-header">
-      <h1>Map Itinerary</h1>
+      <h1>
+        <span className="color-primary">Map</span>
+        <span className="color-graphite">Itin</span>
+      </h1>
 
       <div className="status-row">
-        <span className={`status-pill ${connected ? 'online' : 'offline'}`}>
-          {connected ? 'Connected' : 'Reconnecting'}
+        <span className={`status-pill ${connected ? "online" : "offline"}`}>
+          {connected ? "Connected" : "Reconnecting"}
         </span>
-        {hasTrip ? <span className="status-pill neutral">Updated {updatedAt}</span> : null}
+        {hasTrip ? (
+          <span className="status-pill neutral">Updated {updatedAt}</span>
+        ) : null}
       </div>
 
       {!hasTrip ? (
@@ -71,7 +76,7 @@ const TripHeaderComponent = ({
           <div className="trip-meta-row">
             <span className="trip-meta-label">Role: </span>
             <span className="trip-meta-value">
-              {tripRole === 'owner' ? 'Owner' : 'Guest'}
+              {tripRole === "owner" ? "Owner" : "Guest"}
             </span>
           </div>
 
@@ -80,8 +85,7 @@ const TripHeaderComponent = ({
             <span className="trip-meta-value">{trip.name}</span>
           </div>
 
-
-          {tripRole === 'owner' ? (
+          {tripRole === "owner" ? (
             <>
               <div className="trip-meta-row">
                 <span className="trip-meta-label">Owner ID: </span>
@@ -100,12 +104,20 @@ const TripHeaderComponent = ({
           ) : null}
 
           <div className="trip-meta-actions">
-            {tripRole === 'owner' ? (
-              <button type="button" className="button danger" onClick={onDeleteTrip}>
+            {tripRole === "owner" ? (
+              <button
+                type="button"
+                className="button danger"
+                onClick={onDeleteTrip}
+              >
                 Delete
               </button>
             ) : null}
-            <button type="button" className="button subtle" onClick={onLeaveTrip}>
+            <button
+              type="button"
+              className="button subtle"
+              onClick={onLeaveTrip}
+            >
               Leave
             </button>
           </div>

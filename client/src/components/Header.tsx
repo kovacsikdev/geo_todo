@@ -1,17 +1,19 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import "./Header.css";
 
 export const Header = () => {
-  const navigate = useNavigate();
   return (
     <header id="Header">
       <div className="header-title">
-        <img src="/icon_128.webp" alt="Map itinerary logo" />
-        <h1 className="color-primary">MapItin</h1>
+        <img src="/logo-128.png" alt="Map itinerary logo" />
+        <h1>
+          <span className="color-primary">Map</span>
+          <span className="color-graphite">Itin</span>
+        </h1>
       </div>
-      <button className="cta-button" onClick={() => navigate("/app")}>
+      <Link className="cta-button" to="/app">
         Try it now
-      </button>
+      </Link>
     </header>
   );
 };

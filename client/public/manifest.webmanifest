@@ -1,7 +1,7 @@
 {
-  "name": "Map Itinerary",
+  "name": "MapItin",
   "short_name": "MapItin",
-  "description": "Plan shared itineraries with live collaboration.",
+  "description": "Create itineraries to specific locations.",
   "id": "/app",
   "start_url": "/app",
   "scope": "/app",
@@ -11,13 +11,13 @@
   "orientation": "natural",
   "icons": [
     {
-      "src": "/icon_192.png",
+      "src": "/logo-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon_512.png",
+      "src": "/logo-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
