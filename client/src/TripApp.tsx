@@ -40,7 +40,8 @@ const EMPTY_STATE: SharedState = {
 };
 
 const resolveServerUrl = (): string => {
-  const configured = (import.meta.env.VITE_SERVER_URL as string | undefined)?.trim() ?? "";
+  const configured =
+    (import.meta.env.VITE_SERVER_URL as string | undefined)?.trim() ?? "";
   const baseUrl = configured || "http://localhost:8080";
   return baseUrl.replace(/\/+$/, "");
 };
@@ -63,13 +64,17 @@ type DirectionsTarget = {
 };
 
 const isStandaloneMode = (): boolean => {
-  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
 };
 
 const isIosSafari = (): boolean => {
   const userAgent = window.navigator.userAgent.toLowerCase();
   const isIos = /iphone|ipad|ipod/.test(userAgent);
-  const isWebKitSafari = /safari/.test(userAgent) && !/crios|fxios|edgios/.test(userAgent);
+  const isWebKitSafari =
+    /safari/.test(userAgent) && !/crios|fxios|edgios/.test(userAgent);
   return isIos && isWebKitSafari;
 };
 
@@ -99,10 +104,16 @@ const TripApp = () => {
   const [ownerId, setOwnerId] = useState("");
   const [guestId, setGuestId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [busyState, setBusyState] = useState<"create" | "join" | "delete" | "rename" | null>(null);
-  const [tripRole, setTripRole] = useState<TripRole>(initialSession.initialRole);
+  const [busyState, setBusyState] = useState<
+    "create" | "join" | "delete" | "rename" | null
+  >(null);
+  const [tripRole, setTripRole] = useState<TripRole>(
+    initialSession.initialRole,
+  );
   const [installPromptEvent, setInstallPromptEvent] =
-    useState<BeforeInstallPromptEvent | null>(() => window.__geoTodoBeforeInstallPromptEvent ?? null);
+    useState<BeforeInstallPromptEvent | null>(
+      () => window.__geoTodoBeforeInstallPromptEvent ?? null,
+    );
   const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const [isStandalone, setIsStandalone] = useState(() => isStandaloneMode());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -112,7 +123,8 @@ const TripApp = () => {
   const [pendingLocationScrollId, setPendingLocationScrollId] = useState<
     string | null
   >(null);
-  const [directionsTarget, setDirectionsTarget] = useState<DirectionsTarget | null>(null);
+  const [directionsTarget, setDirectionsTarget] =
+    useState<DirectionsTarget | null>(null);
   const [mapFocusRequest, setMapFocusRequest] = useState<FocusRequest | null>(
     null,
   );
@@ -199,7 +211,10 @@ const TripApp = () => {
     }
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
       window.removeEventListener("appinstalled", handleAppInstalled);
 
       if (typeof mediaQuery.removeEventListener === "function") {
@@ -308,30 +323,31 @@ const TripApp = () => {
     onSocketError: handleSocketError,
   });
 
-  const { createTrip, joinTrip, leaveTrip, deleteTrip, sendAction } = useTripActions({
-    serverUrl: SERVER_URL,
-    connected,
-    createTripNameDraft,
-    accessIdDraft,
-    autoJoinEnabled,
-    activeTripId,
-    ownerId,
-    sharedState,
-    tripRole,
-    joinTripViaSSE,
-    setBusy,
-    setBusyState,
-    setActiveTripId,
-    setOwnerId,
-    setGuestId,
-    setCreateTripNameDraft,
-    setTripNameDraft,
-    setAccessIdDraft,
-    setSharedState,
-    setTripRole,
-    showToast,
-    emptyState: EMPTY_STATE,
-  });
+  const { createTrip, joinTrip, leaveTrip, deleteTrip, sendAction } =
+    useTripActions({
+      serverUrl: SERVER_URL,
+      connected,
+      createTripNameDraft,
+      accessIdDraft,
+      autoJoinEnabled,
+      activeTripId,
+      ownerId,
+      sharedState,
+      tripRole,
+      joinTripViaSSE,
+      setBusy,
+      setBusyState,
+      setActiveTripId,
+      setOwnerId,
+      setGuestId,
+      setCreateTripNameDraft,
+      setTripNameDraft,
+      setAccessIdDraft,
+      setSharedState,
+      setTripRole,
+      showToast,
+      emptyState: EMPTY_STATE,
+    });
 
   useEffect(() => {
     if (activeTripId) {
@@ -367,7 +383,13 @@ const TripApp = () => {
       latitude: number;
       longitude: number;
     }) => {
-      await sendAction({ type: "create_location", name, address, latitude, longitude });
+      await sendAction({
+        type: "create_location",
+        name,
+        address,
+        latitude,
+        longitude,
+      });
     },
     [sendAction],
   );
@@ -377,16 +399,19 @@ const TripApp = () => {
     setIsMenuOpen(true);
   }, []);
 
-  const handleStartDirections = useCallback((location: LocationTodo, travelMode: "driving" | "walking") => {
-    setIsMenuOpen(false);
-    setDirectionsTarget({
-      locationId: location.id,
-      name: location.name,
-      longitude: location.longitude,
-      latitude: location.latitude,
-      travelMode,
-    });
-  }, []);
+  const handleStartDirections = useCallback(
+    (location: LocationTodo, travelMode: "driving" | "walking") => {
+      setIsMenuOpen(false);
+      setDirectionsTarget({
+        locationId: location.id,
+        name: location.name,
+        longitude: location.longitude,
+        latitude: location.latitude,
+        travelMode,
+      });
+    },
+    [],
+  );
 
   const handleCancelDirections = useCallback(() => {
     setDirectionsTarget(null);
@@ -453,7 +478,10 @@ const TripApp = () => {
       setBusy(true);
       setBusyState("rename");
       try {
-        const renamed = await sendAction({ type: "rename_trip", name: trimmedName });
+        const renamed = await sendAction({
+          type: "rename_trip",
+          name: trimmedName,
+        });
         if (renamed) {
           showToast("Trip name updated.", "success");
         }
@@ -546,20 +574,30 @@ const TripApp = () => {
           <p className="eyebrow">Install the app</p>
           {installPromptEvent ? (
             <p>
-              Install the app for easier access, faster launch, and a more seamless, integrated experience on your device.
+              Install the app for easier access, faster launch, and a more
+              seamless, integrated experience on your device.
             </p>
           ) : (
             <p>
-              On iPhone, tap Share and then choose Add to Home Screen to install this app.
+              On iPhone, tap Share and then choose Add to Home Screen to install
+              this app.
             </p>
           )}
           <div className="install-prompt-actions">
             {installPromptEvent ? (
-              <button type="button" className="button primary" onClick={() => void promptInstall()}>
+              <button
+                type="button"
+                className="button primary"
+                onClick={() => void promptInstall()}
+              >
                 Install app
               </button>
             ) : null}
-            <button type="button" className="button subtle" onClick={dismissInstallBanner}>
+            <button
+              type="button"
+              className="button subtle"
+              onClick={dismissInstallBanner}
+            >
               Not now
             </button>
           </div>
@@ -576,7 +614,14 @@ const TripApp = () => {
           >
             <div className="trip-gate-dialog-header">
               <div>
-                <h2 id="trip-gate-title">Create or join a trip</h2>
+                <h2>
+                  <span className="color-primary">Map</span>
+                  <span className="color-graphite">Itin</span>
+                </h2>
+                <p>
+                  Create or join a trip to start planning your itinerary with
+                  friends.
+                </p>
               </div>
             </div>
             <TripGate
