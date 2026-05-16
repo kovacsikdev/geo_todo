@@ -52,6 +52,11 @@
   cursor: not-allowed;
 }
 
+.menu-toggle.is-hidden-for-driving {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .side-menu {
   position: fixed;
   top: 0;

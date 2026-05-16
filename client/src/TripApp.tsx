@@ -106,6 +106,7 @@ const TripApp = () => {
   const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const [isStandalone, setIsStandalone] = useState(() => isStandaloneMode());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileDrivingActive, setIsMobileDrivingActive] = useState(false);
   const [isTripGateOpen, setIsTripGateOpen] = useState(false);
   const [hasShownInitialTripGate, setHasShownInitialTripGate] = useState(false);
   const [pendingLocationScrollId, setPendingLocationScrollId] = useState<
@@ -523,18 +524,19 @@ const TripApp = () => {
           onLocationPinClick={handleMapLocationPinClick}
           onCancelDirections={handleCancelDirections}
           onMapError={handleMapError}
+          onMobileDrivingStateChange={setIsMobileDrivingActive}
           onSearchFocus={handleMapSearchFocus}
         />
       </Suspense>
 
       <button
         type="button"
-        className={`menu-toggle ${isMenuOpen ? "is-open" : ""}`}
+        className={`menu-toggle ${isMenuOpen ? "is-open" : ""} ${isMobileDrivingActive ? "is-hidden-for-driving" : ""}`}
         aria-label="Open todo menu"
         aria-expanded={isMenuOpen}
         aria-controls="todo-side-menu"
         onClick={openMenu}
-        disabled={isMenuOpen}
+        disabled={isMenuOpen || isMobileDrivingActive}
       >
         {"\u2630"}
       </button>

@@ -50,6 +50,13 @@ export const DRIVING_CAMERA_PADDING = {
   left: 40,
 }
 
+export const MOBILE_DRIVING_CAMERA_PADDING = {
+  top: 280,
+  right: 20,
+  bottom: 24,
+  left: 20,
+}
+
 const SEARCH_CATEGORY_MAP: Record<string, string> = {
   pub: 'bar',
   pubs: 'bar',
@@ -164,6 +171,15 @@ export const formatEta = (etaMinutes: number): string => {
   const hours = Math.floor(etaMinutes / 60)
   const minutes = Math.round(etaMinutes % 60)
   return `${hours} hr ${minutes} min`
+}
+
+export const formatArrivalTime = (etaMinutes: number, now = new Date()): string => {
+  const arrivalDate = new Date(now.getTime() + etaMinutes * 60_000)
+
+  return arrivalDate.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 export const formatDirectionsModeLabel = (travelMode: 'driving' | 'walking'): string => {
