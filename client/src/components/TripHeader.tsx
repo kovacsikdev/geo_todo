@@ -1,15 +1,13 @@
-import { memo } from "react";
+import { memo, useCallback, useState } from "react";
 import type { FormEvent } from "react";
-import { TripGate } from "./TripGate";
 import type { Trip, TripRole } from "../types";
 import "./TripHeader.css";
 
 type TripHeaderProps = {
   hasTrip: boolean;
   busy: boolean;
-  busyState: "create" | "join" | "delete" | null;
+  busyState: "create" | "join" | "delete" | "rename" | null;
   tripNameDraft: string;
-  accessIdDraft: string;
   trip: Trip;
   ownerId: string;
   guestId: string;
@@ -17,11 +15,10 @@ type TripHeaderProps = {
   connected: boolean;
   updatedAt: string;
   onTripNameDraftChange: (value: string) => void;
-  onAccessIdDraftChange: (value: string) => void;
-  onCreateTrip: (event: FormEvent<HTMLFormElement>) => void;
-  onJoinTrip: (event: FormEvent<HTMLFormElement>) => void;
+  onRenameTrip: (event: FormEvent<HTMLFormElement>) => Promise<boolean>;
   onDeleteTrip: () => void;
   onLeaveTrip: () => void;
+  onOpenTripGate: () => void;
 };
 
 const TripHeaderComponent = ({
@@ -29,7 +26,6 @@ const TripHeaderComponent = ({
   busy,
   busyState,
   tripNameDraft,
-  accessIdDraft,
   trip,
   ownerId,
   guestId,
@@ -37,12 +33,34 @@ const TripHeaderComponent = ({
   connected,
   updatedAt,
   onTripNameDraftChange,
-  onAccessIdDraftChange,
-  onCreateTrip,
-  onJoinTrip,
+  onRenameTrip,
   onDeleteTrip,
   onLeaveTrip,
+  onOpenTripGate,
 }: TripHeaderProps) => {
+  const [isEditingTripName, setIsEditingTripName] = useState(false);
+  const disableRename = busy || tripNameDraft.trim().length === 0 || tripNameDraft.trim() === trip.name;
+
+  const openTripNameEditor = useCallback(() => {
+    onTripNameDraftChange(trip.name);
+    setIsEditingTripName(true);
+  }, [onTripNameDraftChange, trip.name]);
+
+  const cancelTripNameEditor = useCallback(() => {
+    onTripNameDraftChange(trip.name);
+    setIsEditingTripName(false);
+  }, [onTripNameDraftChange, trip.name]);
+
+  const submitTripNameEditor = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      const renamed = await onRenameTrip(event);
+      if (renamed) {
+        setIsEditingTripName(false);
+      }
+    },
+    [onRenameTrip],
+  );
+
   return (
     <header className="hero-header">
       <h1>
@@ -60,17 +78,12 @@ const TripHeaderComponent = ({
       </div>
 
       {!hasTrip ? (
-        <TripGate
-          connected={connected}
-          busy={busy}
-          busyState={busyState}
-          tripNameDraft={tripNameDraft}
-          accessIdDraft={accessIdDraft}
-          onTripNameDraftChange={onTripNameDraftChange}
-          onAccessIdDraftChange={onAccessIdDraftChange}
-          onCreateTrip={onCreateTrip}
-          onJoinTrip={onJoinTrip}
-        />
+        <div className="trip-empty-state">
+          <p className="trip-empty-copy">You are not connected to a trip yet.</p>
+          <button type="button" className="button primary" onClick={onOpenTripGate}>
+            Create or join a trip
+          </button>
+        </div>
       ) : (
         <div className="trip-meta">
           <div className="trip-meta-row">
@@ -82,7 +95,35 @@ const TripHeaderComponent = ({
 
           <div className="trip-meta-row">
             <span className="trip-meta-label">Trip name: </span>
-            <span className="trip-meta-value">{trip.name}</span>
+            {tripRole === "owner" ? (
+              isEditingTripName ? (
+                <form className="trip-name-form" onSubmit={(event) => void submitTripNameEditor(event)}>
+                  <input
+                    value={tripNameDraft}
+                    onChange={(event) => onTripNameDraftChange(event.target.value)}
+                    aria-label="Trip name"
+                    autoFocus
+                  />
+                  <div className="trip-name-form-actions">
+                    <button type="submit" className="button subtle" disabled={disableRename}>
+                      {busyState === "rename" ? "Saving..." : "Save"}
+                    </button>
+                    <button type="button" className="button subtle" onClick={cancelTripNameEditor} disabled={busyState === "rename"}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="trip-name-display">
+                  <span className="trip-meta-value">{trip.name}</span>
+                  <button type="button" className="button subtle" onClick={openTripNameEditor} disabled={busy}>
+                    Edit
+                  </button>
+                </div>
+              )
+            ) : (
+              <span className="trip-meta-value">{trip.name}</span>
+            )}
           </div>
 
           {tripRole === "owner" ? (

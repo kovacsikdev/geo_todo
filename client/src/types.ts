@@ -25,6 +25,7 @@ export type SharedState = {
 }
 
 export type ClientAction =
+  | { type: 'rename_trip'; name: string }
   | { type: 'create_location'; name: string; address?: string; latitude: number; longitude: number }
   | { type: 'reorder_locations'; locationIds: string[] }
   | { type: 'rename_location'; locationId: string; name: string }

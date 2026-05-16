@@ -12,7 +12,7 @@ export const Header = () => {
         </h1>
       </div>
       <Link className="cta-button" to="/app">
-        Try it now
+        Try now
       </Link>
     </header>
   );

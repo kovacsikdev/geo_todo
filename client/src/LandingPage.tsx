@@ -215,7 +215,7 @@ const LandingPage = () => {
             collaborate with fellow travelers in real time.
           </p>
           <Link className="cta-button" to="/app">
-            Try it now
+            Try now
           </Link>
         </div>
         <div className="screenshot-container">

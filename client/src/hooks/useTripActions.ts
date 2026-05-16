@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { FormEvent } from "react";
+import { clearActiveAccessId } from "../lib/activeTripStorage";
 import { applyTripAction } from "../lib/applyTripAction";
 import type { ClientAction, SharedState, TripRole } from "../types";
 import type { ToastKind } from "../components/ToastStack";
@@ -26,8 +27,9 @@ type UseTripActionsOptions = {
   serverUrl: string;
   // SSE connection state — used only to guard the guest joinTrip action
   connected: boolean;
-  tripNameDraft: string;
+  createTripNameDraft: string;
   accessIdDraft: string;
+  autoJoinEnabled: boolean;
   activeTripId: string;
   ownerId: string;
   sharedState: SharedState;
@@ -39,10 +41,12 @@ type UseTripActionsOptions = {
     guestId?: string;
   }>;
   setBusy: (value: boolean) => void;
-  setBusyState: (value: "create" | "join" | "delete" | null) => void;
+  setBusyState: (value: "create" | "join" | "delete" | "rename" | null) => void;
   setActiveTripId: (value: string) => void;
   setOwnerId: (value: string) => void;
   setGuestId: (value: string) => void;
+  setCreateTripNameDraft: (value: string) => void;
+  setTripNameDraft: (value: string) => void;
   setAccessIdDraft: (value: string) => void;
   setSharedState: (value: SharedState) => void;
   setTripRole: (value: TripRole) => void;
@@ -60,8 +64,9 @@ type JoinedTripResult = {
 export function useTripActions({
   serverUrl,
   connected,
-  tripNameDraft,
+  createTripNameDraft,
   accessIdDraft,
+  autoJoinEnabled,
   activeTripId,
   ownerId,
   sharedState,
@@ -72,6 +77,8 @@ export function useTripActions({
   setActiveTripId,
   setOwnerId,
   setGuestId,
+  setCreateTripNameDraft,
+  setTripNameDraft,
   setAccessIdDraft,
   setSharedState,
   setTripRole,
@@ -103,19 +110,24 @@ export function useTripActions({
   );
 
   const leaveTrip = useCallback(() => {
+    clearActiveAccessId();
     setActiveTripId("");
     setOwnerId("");
     setGuestId("");
+    setCreateTripNameDraft("");
+    setTripNameDraft("");
     setAccessIdDraft("");
     setSharedState(emptyState);
     setTripRole("guest");
   }, [
     emptyState,
+    setCreateTripNameDraft,
     setAccessIdDraft,
     setActiveTripId,
     setGuestId,
     setOwnerId,
     setSharedState,
+    setTripNameDraft,
     setTripRole,
   ]);
 
@@ -123,9 +135,9 @@ export function useTripActions({
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
-      const trimmedName = tripNameDraft.trim();
+      const trimmedName = createTripNameDraft.trim();
       if (!trimmedName) {
-        return;
+        return false;
       }
 
       setBusy(true);
@@ -152,6 +164,18 @@ export function useTripActions({
           throw new Error("Server did not return trip/owner/guest IDs.");
         }
 
+        setCreateTripNameDraft("");
+
+        if (!autoJoinEnabled) {
+          setTripNameDraft("");
+          setAccessIdDraft(createdOwnerId);
+          showToast(
+            `Trip created. Owner ID: ${createdOwnerId}. Guest ID: ${createdGuestId}.`,
+            "success",
+          );
+          return true;
+        }
+
         // Update the trip state with the actual server-generated trip ID
         const finalState: SharedState = {
           trip: {
@@ -174,14 +198,17 @@ export function useTripActions({
           },
           createdOwnerId,
         );
+        setTripNameDraft(trimmedName);
         showToast(
           `Trip created and joined as owner. Guest ID: ${createdGuestId}.`,
           "success",
         );
+        return true;
       } catch (error) {
         showToast(
           error instanceof Error ? error.message : "Unable to create trip.",
         );
+        return false;
       } finally {
         setBusy(false);
         setBusyState(null);
@@ -189,13 +216,17 @@ export function useTripActions({
     },
     [
       applyJoinedTripState,
+      autoJoinEnabled,
+      createTripNameDraft,
       joinTripViaSSE,
+      setAccessIdDraft,
       setBusy,
       setBusyState,
+      setCreateTripNameDraft,
       setSharedState,
+      setTripNameDraft,
       showToast,
       serverUrl,
-      tripNameDraft,
     ],
   );
 
@@ -205,12 +236,12 @@ export function useTripActions({
 
       if (!connected) {
         showToast("Reconnecting to collaboration server. Please wait.");
-        return;
+        return false;
       }
 
       const trimmedId = accessIdDraft.trim();
       if (!trimmedId) {
-        return;
+        return false;
       }
 
       setBusy(true);
@@ -220,8 +251,10 @@ export function useTripActions({
         applyJoinedTripState(joined, trimmedId);
 
         showToast("Joined trip successfully.", "success");
+        return true;
       } catch (error) {
         showToast(error instanceof Error ? error.message : "Trip not found.");
+        return false;
       } finally {
         setBusy(false);
         setBusyState(null);
@@ -286,18 +319,18 @@ export function useTripActions({
     async (action: ClientAction) => {
       if (tripRole !== "owner") {
         showToast("Guests have read-only access.");
-        return;
+        return false;
       }
 
       if (!activeTripId) {
         showToast("Join a trip before sending updates.");
-        return;
+        return false;
       }
 
       const resolvedOwnerId = ownerId;
       if (!resolvedOwnerId) {
         showToast("Missing owner ID for update request.");
-        return;
+        return false;
       }
 
       try {
@@ -308,10 +341,15 @@ export function useTripActions({
           data: JSON.stringify(nextState),
         });
         setSharedState(nextState);
+        if (action.type === "rename_trip") {
+          setTripNameDraft(nextState.trip.name);
+        }
+        return true;
       } catch (error) {
         showToast(
           error instanceof Error ? error.message : "Unable to update trip.",
         );
+        return false;
       }
     },
     [
@@ -319,6 +357,7 @@ export function useTripActions({
       ownerId,
       serverUrl,
       setSharedState,
+      setTripNameDraft,
       sharedState,
       showToast,
       tripRole,

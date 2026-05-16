@@ -1,7 +1,7 @@
 .trip-gate {
   margin-top: 0.45rem;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.6rem;
 }
 
 .trip-gate-intro {
@@ -20,8 +20,8 @@
 
 .trip-gate-form {
   display: grid;
-  gap: 0.18rem;
-  padding: 1.5rem 0;
+  gap: 0.35rem;
+  padding: 1rem 0;
   background: transparent;
 }
 
@@ -42,4 +42,21 @@
 .gate-note {
   margin: 0;
   line-height: 1.25;
+}
+
+.trip-gate-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.trip-gate-checkbox input {
+  flex: 0 0 auto;
+}
+
+.trip-gate-footer {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--stroke-soft);
 }

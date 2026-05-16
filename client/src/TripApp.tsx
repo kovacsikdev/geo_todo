@@ -7,10 +7,13 @@ import {
   useRef,
   useState,
 } from "react";
+import type { FormEvent } from "react";
+import { TripGate } from "./components/TripGate";
 import { TripHeader } from "./components/TripHeader";
 import { TripBoard } from "./components/TripBoard";
 import { ToastStack } from "./components/ToastStack";
 import {
+  clearActiveAccessId,
   loadActiveAccessId,
   saveActiveAccessId,
 } from "./lib/activeTripStorage";
@@ -86,21 +89,25 @@ const TripApp = () => {
   const activeAccessIdRef = useRef(initialSession.persistedAccessId);
   const [sharedState, setSharedState] = useState<SharedState>(EMPTY_STATE);
   const { toasts, showToast, dismissToast } = useToastQueue();
+  const [createTripNameDraft, setCreateTripNameDraft] = useState("");
   const [tripNameDraft, setTripNameDraft] = useState("");
   const [accessIdDraft, setAccessIdDraft] = useState(
     initialSession.persistedAccessId,
   );
+  const [autoJoinEnabled, setAutoJoinEnabled] = useState(true);
   const [activeTripId, setActiveTripId] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [guestId, setGuestId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [busyState, setBusyState] = useState<"create" | "join" | "delete" | null>(null);
+  const [busyState, setBusyState] = useState<"create" | "join" | "delete" | "rename" | null>(null);
   const [tripRole, setTripRole] = useState<TripRole>(initialSession.initialRole);
   const [installPromptEvent, setInstallPromptEvent] =
     useState<BeforeInstallPromptEvent | null>(() => window.__geoTodoBeforeInstallPromptEvent ?? null);
   const [installBannerDismissed, setInstallBannerDismissed] = useState(false);
   const [isStandalone, setIsStandalone] = useState(() => isStandaloneMode());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isTripGateOpen, setIsTripGateOpen] = useState(false);
+  const [hasShownInitialTripGate, setHasShownInitialTripGate] = useState(false);
   const [pendingLocationScrollId, setPendingLocationScrollId] = useState<
     string | null
   >(null);
@@ -118,10 +125,23 @@ const TripApp = () => {
   }, [accessIdDraft]);
 
   useEffect(() => {
+    if (!activeTripId || !accessIdDraft || !autoJoinEnabled) {
+      clearActiveAccessId();
+      return;
+    }
+
     if (activeTripId && accessIdDraft) {
       saveActiveAccessId(accessIdDraft);
     }
-  }, [activeTripId, accessIdDraft]);
+  }, [activeTripId, accessIdDraft, autoJoinEnabled]);
+
+  useEffect(() => {
+    if (!activeTripId || isTripGateOpen) {
+      return;
+    }
+
+    setTripNameDraft(sharedState.trip.name);
+  }, [activeTripId, isTripGateOpen, sharedState.trip.name]);
 
   useEffect(() => {
     if (activeTripId) {
@@ -218,9 +238,12 @@ const TripApp = () => {
   const handleTripDeletedMessage = useCallback(
     (message: { type: "tripDeleted"; tripId: string; message: string }) => {
       if (activeTripIdRef.current === message.tripId) {
+        clearActiveAccessId();
         setActiveTripId("");
         setOwnerId("");
         setGuestId("");
+        setCreateTripNameDraft("");
+        setTripNameDraft("");
         setAccessIdDraft("");
         setSharedState(EMPTY_STATE);
         setTripRole("guest");
@@ -233,6 +256,11 @@ const TripApp = () => {
 
   const handleReconnectJoinError = useCallback(
     (error: Error) => {
+      clearActiveAccessId();
+      setAccessIdDraft("");
+      setTripNameDraft("");
+      setIsTripGateOpen(true);
+      setHasShownInitialTripGate(true);
       showToast(error.message);
     },
     [showToast],
@@ -245,6 +273,8 @@ const TripApp = () => {
       ownerId?: string;
       guestId?: string;
     }) => {
+      setHasShownInitialTripGate(true);
+      setIsTripGateOpen(false);
       setActiveTripId(joined.tripId);
       setTripRole(joined.role);
 
@@ -280,8 +310,9 @@ const TripApp = () => {
   const { createTrip, joinTrip, leaveTrip, deleteTrip, sendAction } = useTripActions({
     serverUrl: SERVER_URL,
     connected,
-    tripNameDraft,
+    createTripNameDraft,
     accessIdDraft,
+    autoJoinEnabled,
     activeTripId,
     ownerId,
     sharedState,
@@ -292,12 +323,28 @@ const TripApp = () => {
     setActiveTripId,
     setOwnerId,
     setGuestId,
+    setCreateTripNameDraft,
+    setTripNameDraft,
     setAccessIdDraft,
     setSharedState,
     setTripRole,
     showToast,
     emptyState: EMPTY_STATE,
   });
+
+  useEffect(() => {
+    if (activeTripId) {
+      setIsTripGateOpen(false);
+      return;
+    }
+
+    if (hasShownInitialTripGate || initialSession.persistedAccessId) {
+      return;
+    }
+
+    setIsTripGateOpen(true);
+    setHasShownInitialTripGate(true);
+  }, [activeTripId, hasShownInitialTripGate, initialSession.persistedAccessId]);
 
   const handleFocusLocation = useCallback(
     (longitude: number, latitude: number): void => {
@@ -366,6 +413,57 @@ const TripApp = () => {
   const onDeleteTrip = useCallback(() => {
     void deleteTrip();
   }, [deleteTrip]);
+
+  const openTripGate = useCallback(() => {
+    setIsTripGateOpen(true);
+  }, []);
+
+  const handleCreateTrip = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      const created = await createTrip(event);
+      if (created) {
+        setIsTripGateOpen(false);
+      }
+      return created;
+    },
+    [createTrip],
+  );
+
+  const handleJoinTrip = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      const joined = await joinTrip(event);
+      if (joined) {
+        setIsTripGateOpen(false);
+      }
+      return joined;
+    },
+    [joinTrip],
+  );
+
+  const handleRenameTrip = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      const trimmedName = tripNameDraft.trim();
+      if (!trimmedName || trimmedName === sharedState.trip.name) {
+        return false;
+      }
+
+      setBusy(true);
+      setBusyState("rename");
+      try {
+        const renamed = await sendAction({ type: "rename_trip", name: trimmedName });
+        if (renamed) {
+          showToast("Trip name updated.", "success");
+        }
+        return renamed;
+      } finally {
+        setBusy(false);
+        setBusyState(null);
+      }
+    },
+    [sendAction, sharedState.trip.name, showToast, tripNameDraft],
+  );
 
   const dismissInstallBanner = useCallback(() => {
     setInstallBannerDismissed(true);
@@ -466,6 +564,36 @@ const TripApp = () => {
         </section>
       ) : null}
 
+      {isTripGateOpen ? (
+        <div className="trip-gate-dialog-backdrop" role="presentation">
+          <section
+            className="trip-gate-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="trip-gate-title"
+          >
+            <div className="trip-gate-dialog-header">
+              <div>
+                <h2 id="trip-gate-title">Create or join a trip</h2>
+              </div>
+            </div>
+            <TripGate
+              connected={connected}
+              busy={busy}
+              busyState={busyState}
+              tripNameDraft={createTripNameDraft}
+              accessIdDraft={accessIdDraft}
+              autoJoinEnabled={autoJoinEnabled}
+              onTripNameDraftChange={setCreateTripNameDraft}
+              onAccessIdDraftChange={setAccessIdDraft}
+              onAutoJoinEnabledChange={setAutoJoinEnabled}
+              onCreateTrip={handleCreateTrip}
+              onJoinTrip={handleJoinTrip}
+            />
+          </section>
+        </div>
+      ) : null}
+
       <aside
         id="todo-side-menu"
         className={`side-menu ${isMenuOpen ? "is-open" : ""}`}
@@ -485,7 +613,6 @@ const TripApp = () => {
           busy={busy}
           busyState={busyState}
           tripNameDraft={tripNameDraft}
-          accessIdDraft={accessIdDraft}
           trip={sharedState.trip}
           ownerId={ownerId}
           guestId={guestId}
@@ -493,11 +620,10 @@ const TripApp = () => {
           connected={connected}
           updatedAt={updatedAt}
           onTripNameDraftChange={setTripNameDraft}
-          onAccessIdDraftChange={setAccessIdDraft}
-          onCreateTrip={createTrip}
-          onJoinTrip={joinTrip}
+          onRenameTrip={handleRenameTrip}
           onDeleteTrip={onDeleteTrip}
           onLeaveTrip={leaveTrip}
+          onOpenTripGate={openTripGate}
         />
 
         <ToastStack toasts={toasts} onDismiss={dismissToast} />

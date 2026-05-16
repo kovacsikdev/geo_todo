@@ -29,6 +29,16 @@
   margin: 0.5rem 0;
 }
 
+.trip-empty-state {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trip-empty-copy {
+  margin: 0;
+}
+
 .trip-meta-row {
   padding: 0.25rem 0;
 }
@@ -39,6 +49,30 @@
 
 .trip-meta-value {
   min-width: 0;
+}
+
+.trip-name-display {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.trip-name-form {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.trip-name-form input {
+  width: 100%;
+}
+
+.trip-name-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .trip-meta-actions {

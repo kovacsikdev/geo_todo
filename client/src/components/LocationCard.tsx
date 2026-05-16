@@ -9,7 +9,7 @@ import "./LocationCard.css";
 
 type LocationCardProps = {
   location: LocationTodo;
-  onAction: (action: ClientAction) => Promise<void>;
+  onAction: (action: ClientAction) => Promise<boolean>;
   canEdit: boolean;
   onFocusLocation: (longitude: number, latitude: number) => void;
   onOpenLocationEditor: (location: LocationTodo) => void;
@@ -22,7 +22,7 @@ type SortableTaskRowProps = {
   locationId: string;
   item: LocationTodo["items"][number];
   canEdit: boolean;
-  onAction: (action: ClientAction) => Promise<void>;
+  onAction: (action: ClientAction) => Promise<boolean>;
   onOpenEditor: (itemId: string) => void;
   onDeleteItem: (itemId: string, itemText: string) => void;
 };

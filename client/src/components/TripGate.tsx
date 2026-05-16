@@ -5,13 +5,15 @@ import "./TripGate.css"
 type TripGateProps = {
   connected: boolean
   busy: boolean
-  busyState: "create" | "join" | "delete" | null
+  busyState: "create" | "join" | "delete" | "rename" | null
   tripNameDraft: string
   accessIdDraft: string
+  autoJoinEnabled: boolean
   onTripNameDraftChange: (value: string) => void
   onAccessIdDraftChange: (value: string) => void
-  onCreateTrip: (event: FormEvent<HTMLFormElement>) => void
-  onJoinTrip: (event: FormEvent<HTMLFormElement>) => void
+  onAutoJoinEnabledChange: (value: boolean) => void
+  onCreateTrip: (event: FormEvent<HTMLFormElement>) => Promise<boolean>
+  onJoinTrip: (event: FormEvent<HTMLFormElement>) => Promise<boolean>
 }
 
 const TripGateComponent = ({
@@ -20,8 +22,10 @@ const TripGateComponent = ({
   busyState,
   tripNameDraft,
   accessIdDraft,
+  autoJoinEnabled,
   onTripNameDraftChange,
   onAccessIdDraftChange,
+  onAutoJoinEnabledChange,
   onCreateTrip,
   onJoinTrip,
 }: TripGateProps) => {
@@ -29,8 +33,6 @@ const TripGateComponent = ({
 
   return (
     <section className="trip-gate">
-      <p className="trip-gate-intro">Create a new trip or join an existing one</p>
-
       <form className="trip-gate-form" onSubmit={onCreateTrip}>
         <label className="field-label" htmlFor="new-trip-name">
           Create trip
@@ -51,7 +53,7 @@ const TripGateComponent = ({
 
       <form className="trip-gate-form" onSubmit={onJoinTrip}>
         <label className="field-label" htmlFor="join-access-id">
-          Join trip with Owner or Guest ID:
+          Join existing trip with Owner or Guest ID:
         </label>
         <div className="row trip-gate-row">
           <input
@@ -67,6 +69,18 @@ const TripGateComponent = ({
         <p className="gate-note">Enter Owner ID: Gives ability to add and edit tasks</p>
         <p className="gate-note">Enter Guest ID: Read only access</p>
       </form>
+
+      <footer className="trip-gate-footer">
+        <label className="trip-gate-checkbox" htmlFor="trip-gate-auto-join">
+          <input
+            id="trip-gate-auto-join"
+            type="checkbox"
+            checked={autoJoinEnabled}
+            onChange={(event) => onAutoJoinEnabledChange(event.target.checked)}
+          />
+          <span>Auto-join this trip next time</span>
+        </label>
+      </footer>
     </section>
   )
 }

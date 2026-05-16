@@ -56,6 +56,10 @@ export const applyTripAction = (state: SharedState, action: ClientAction): Share
   const nextState = structuredClone(state)
 
   switch (action.type) {
+    case 'rename_trip': {
+      nextState.trip.name = action.name
+      break
+    }
     case 'create_location': {
       nextState.locations.push({
         id: createId(),
