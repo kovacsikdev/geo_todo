@@ -66,8 +66,8 @@ const TripGateComponent = ({
             {busyState === 'join' ? 'Joining...' : 'Join'}
           </button>
         </div>
-        <p className="gate-note">Enter Owner ID: Gives ability to add and edit tasks</p>
-        <p className="gate-note">Enter Guest ID: Read only access</p>
+        <p className="gate-note">Owner ID: Gives ability to add and edit tasks</p>
+        <p className="gate-note">Guest ID: Read only access</p>
       </form>
 
       <footer className="trip-gate-footer">
@@ -78,7 +78,7 @@ const TripGateComponent = ({
             checked={autoJoinEnabled}
             onChange={(event) => onAutoJoinEnabledChange(event.target.checked)}
           />
-          <span>Auto-join this trip next time</span>
+          <span>Auto join</span>
         </label>
       </footer>
     </section>
