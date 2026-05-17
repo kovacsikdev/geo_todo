@@ -671,6 +671,7 @@ const TripApp = () => {
           onDeleteTrip={onDeleteTrip}
           onLeaveTrip={leaveTrip}
           onOpenTripGate={openTripGate}
+          closeMenu={closeMenu}
         />
 
         <ToastStack toasts={toasts} onDismiss={dismissToast} />

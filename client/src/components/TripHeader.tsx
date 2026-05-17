@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import type { Trip, TripRole } from "../types";
 import "./TripHeader.css";
@@ -19,6 +19,7 @@ type TripHeaderProps = {
   onDeleteTrip: () => void;
   onLeaveTrip: () => void;
   onOpenTripGate: () => void;
+  closeMenu: () => void;
 };
 
 const TripHeaderComponent = ({
@@ -37,6 +38,7 @@ const TripHeaderComponent = ({
   onDeleteTrip,
   onLeaveTrip,
   onOpenTripGate,
+  closeMenu
 }: TripHeaderProps) => {
   const [isEditingTripName, setIsEditingTripName] = useState(false);
   const disableRename = busy || tripNameDraft.trim().length === 0 || tripNameDraft.trim() === trip.name;
@@ -61,6 +63,13 @@ const TripHeaderComponent = ({
     [onRenameTrip],
   );
 
+  useEffect(() => {
+    if (!hasTrip) {
+      closeMenu();
+      onOpenTripGate();
+    }
+  }, [hasTrip]);
+
   return (
     <header className="hero-header">
       <h1>
@@ -76,15 +85,7 @@ const TripHeaderComponent = ({
           <span className="status-pill neutral">Updated {updatedAt}</span>
         ) : null}
       </div>
-
-      {!hasTrip ? (
-        <div className="trip-empty-state">
-          <p className="trip-empty-copy">You are not connected to a trip yet.</p>
-          <button type="button" className="button primary" onClick={onOpenTripGate}>
-            Create or join a trip
-          </button>
-        </div>
-      ) : (
+      {hasTrip && (
         <div className="trip-meta">
           <div className="trip-meta-row">
             <span className="trip-meta-label">Role: </span>
