@@ -220,8 +220,8 @@ const LandingPage = () => {
         </div>
         <div className="screenshot-container">
           <img
-            src="/map-itinerary-sample.webp"
-            alt="Map Itinerary sample screenshot"
+            src="/mapitin-owner-screenshot.webp"
+            alt="MapItin owner sample screenshot"
             className="landing-screenshot"
             tabIndex={0}
             style={{
@@ -255,8 +255,8 @@ const LandingPage = () => {
                 ×
               </button>
               <img
-                src="/map-itinerary-sample.webp"
-                alt="Map Itinerary sample screenshot fullscreen"
+                src="/mapitin-owner-screenshot.webp"
+                alt="MapItin owner sample screenshot fullscreen"
                 className="modal-screenshot"
                 style={{
                   maxWidth: "90vw",

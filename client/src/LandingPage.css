@@ -124,4 +124,8 @@
     width: 100%;
     margin: 1rem 0;
   }
+
+  .screenshot-container {
+    margin-top: 2rem;
+  }
 }
