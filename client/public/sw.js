@@ -1,12 +1,12 @@
-const CACHE_NAME = 'geo-todo-runtime-v2'
+const CACHE_NAME = 'mapitin-runtime-v2'
 const APP_SHELL = [
   '/',
   '/app',
   '/manifest.webmanifest',
-  '/favicon.svg',
-  '/apple-touch-icon.png',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/favion-32.png',
+  '/logo-180.png',
+  '/logo-192.png',
+  '/logo-512.png',
 ]
 
 self.addEventListener('install', (event) => {
