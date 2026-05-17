@@ -1258,9 +1258,8 @@ export const TripMap = ({
               return;
             }
 
-            if (event.key === "Enter" && searchResults[0]) {
+            if (event.key === "Enter") {
               event.preventDefault();
-              handleSelectSearchResult(searchResults[0]);
             }
           }}
           placeholder="Search places and addresses"
