@@ -2,7 +2,7 @@ const CACHE_NAME = 'mapitin-runtime-v2'
 const APP_SHELL = [
   '/',
   '/app',
-  '/manifest.webmanifest',
+  '/manifest.webmanifest?v=2',
   '/favion-32.png',
   '/logo-180.png',
   '/logo-192.png',
